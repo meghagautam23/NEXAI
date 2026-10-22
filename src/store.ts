@@ -152,7 +152,7 @@ let worker: Worker | null = null;
 // The optimizer draws on the top 5 bought-together partners (the hints show 3)
 const partners5 = (data: Data) => partnersOf(data.affinity, 5);
 
-// Heavy items always stay in the front bays; ABC zones apply only in Challenge when switched on
+// Bulk items always stay in the front bays; ABC zones apply only in Challenge when switched on
 const rulesFor = (s: Pick<State, 'mode' | 'abcZones'>) => ({ abcZones: s.mode === 'challenge' && s.abcZones });
 
 const noVisits = () => Array<number>(100).fill(0);

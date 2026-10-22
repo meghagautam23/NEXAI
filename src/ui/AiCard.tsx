@@ -34,7 +34,7 @@ export function AiPanel() {
     <>
       <p className="intro">
         Tries {AI_ITERATIONS.toLocaleString('en-GB')} swaps from the Baseline (a few seconds), learning only from 1–21 Nov, then is scored on
-        22–30 Nov, which it never saw. Bought-together products are drawn next to each other; heavy items stay in
+        22–30 Nov, which it never saw. Bought-together products are drawn next to each other; bulk items stay in
         front.
       </p>
 

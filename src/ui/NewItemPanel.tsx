@@ -1,13 +1,13 @@
 // ui/NewItemPanel.tsx — "A new product arrives": estimate it, make room, recommend a slot, place it
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { estimateWeight, planNewItem, weightClassOf, type NewItemPlan } from '../engine/newItem';
+import { planNewItem, type NewItemPlan } from '../engine/newItem';
 import { pickingDays } from '../engine/insights';
 import { useStore } from '../store';
 import { fmtM } from './format';
 
 const EXAMPLES = ['Jumbo Bag Woodland Animals', 'Hot Water Bottle Winter Fox', 'Regency Cakestand 2 Tier', 'Lunch Bag Retrospot Green'];
-const CLASSES = ['FL01', 'FL02', 'FL03', 'FL04', 'FL05', 'FL06', 'FL07'];
+const LEVELS = [0, 1, 2, 3, 4, 5, 6, 7];
 const SHOW = 3;
 
 export function NewItemPanel() {
@@ -16,9 +16,8 @@ export function NewItemPanel() {
     placeNewItem: s.placeNewItem, whatIf: s.whatIf, exitWhatIf: s.exitWhatIf,
   })));
   const [name, setName] = useState('');
-  const [weight, setWeight] = useState<string>('auto');
+  const [level, setLevel] = useState<string>('auto');
   const [plan, setPlan] = useState<NewItemPlan | null>(null);
-  const est = useMemo(() => (name.trim() ? estimateWeight(name) : null), [name]);
 
   if (!data) return null;
   if (whatIf) return (
@@ -34,7 +33,7 @@ export function NewItemPanel() {
   const run = (n = name) => {
     if (!n.trim() || !assign) return;
     setName(n);
-    setPlan(planNewItem(data, assign, { name: n, weightClass: weight === 'auto' ? undefined : weight }, pickingDays(data.orders.train)));
+    setPlan(planNewItem(data, assign, { name: n, fl: level === 'auto' ? undefined : Number(level) }, pickingDays(data.orders.train)));
   };
   const p = data.products;
 
@@ -52,10 +51,10 @@ export function NewItemPanel() {
         <div className="chips">
           {EXAMPLES.map(x => <button type="button" key={x} className="chip" onClick={() => run(x)}>{x}</button>)}
         </div>
-        <label className="label" htmlFor="ni-weight">Weight class</label>
-        <select id="ni-weight" value={weight} onChange={e => { setWeight(e.target.value); setPlan(null); }}>
-          <option value="auto">Auto{est !== null ? ` (est. ${weightClassOf(est)}, ${est} kg)` : ''}</option>
-          {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+        <label className="label" htmlFor="ni-fl">Handling level</label>
+        <select id="ni-fl" value={level} onChange={e => { setLevel(e.target.value); setPlan(null); }}>
+          <option value="auto">Auto: like its look-alikes</option>
+          {LEVELS.map(l => <option key={l} value={l}>FL{l}{l === 0 ? ' (by hand)' : l >= 6 ? ' (bulk)' : ''}</option>)}
         </select>
         <button className="primary block" type="submit" disabled={!name.trim()}>Find the best slot</button>
       </form>
@@ -70,8 +69,8 @@ export function NewItemPanel() {
             <div className="kpis">
               <div><span className="label">Expected picks</span><b>{plan.predictedPicks}</b><span className="muted">per 3 weeks</span></div>
               <div><span className="label">Velocity class</span><b>{plan.velocity}</b><span className="muted">from look-alikes</span></div>
-              <div><span className="label">Weight</span><b>{plan.weightClass}</b>
-                <span className="muted">{plan.weightEstimated ? `est. ${plan.weightKg} kg` : 'set by you'}{plan.heavy ? ' · heavy: front bays' : ''}</span></div>
+              <div><span className="label">Handling</span><b>FL{plan.fl}</b>
+                <span className="muted">{plan.flEstimated ? `~${plan.unitsPerLine} units a line` : 'set by you'}{plan.bulk ? ' · bulk: front bays' : ''}</span></div>
               <div><span className="label">Makes room</span><b className="small-b">{p[plan.retire].name}</b>
                 <span className="muted">slowest ({p[plan.retire].picksTrain} picks) → reserve</span></div>
             </div>

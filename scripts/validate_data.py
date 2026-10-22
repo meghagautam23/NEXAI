@@ -12,8 +12,8 @@ from pathlib import Path
 DATA = Path(sys.argv[1] if len(sys.argv) > 1 else "public/data")
 FILES = ["products.json", "orders.json", "affinity.json"]
 CODE = re.compile(r"^\d{5}[A-Z]{0,2}$")
-KEYS = {"id", "code", "name", "picksTrain", "picksMonth", "valueTrain", "abcVelocity", "abcCost", "weightKg", "weightClass"}
-WEIGHT_CLASSES = {f"FL0{k}" for k in range(1, 8)}
+KEYS = {"id", "code", "name", "picksTrain", "picksMonth", "valueTrain", "abcVelocity", "abcCost", "unitsPerLine", "fl"}
+FL_BANDS = [6, 8, 10, 12, 14, 17, 22]
 START, CUT, END = datetime(2011, 11, 1), datetime(2011, 11, 22), datetime(2011, 12, 1)
 errors = []
 
@@ -44,8 +44,11 @@ for i, p in enumerate(products):
     check(p.get("abcVelocity") == ("A" if i < 20 else "B" if i < 50 else "C"), f"product {i}: abcVelocity must follow rank 20/30/50")
     check(p.get("abcCost") in ("A", "B", "C"), f"product {i}: abcCost must be A, B or C")
     check(isinstance(p.get("valueTrain"), (int, float)) and p["valueTrain"] > 0, f"product {i}: valueTrain must be > 0")
-    check(isinstance(p.get("weightKg"), (int, float)) and p["weightKg"] > 0, f"product {i}: weightKg must be > 0")
-    check(p.get("weightClass") in WEIGHT_CLASSES, f"product {i}: weightClass must be FL01..FL07")
+    upl = p.get("unitsPerLine")
+    check(isinstance(upl, (int, float)) and upl > 0, f"product {i}: unitsPerLine must be > 0")
+    if isinstance(upl, (int, float)):
+        check(p.get("fl") == next((k for k, b in enumerate(FL_BANDS) if upl <= b), 7),
+              f"product {i}: fl must be the band of unitsPerLine ({upl})")
     check(p.get("id") == i, f"product {i}: id must equal its index (0..99)")
     check(isinstance(p.get("code"), str) and CODE.match(p["code"]), f"product {i}: bad StockCode {p.get('code')!r}")
     check(isinstance(p.get("name"), str), f"product {i}: name must be a string")

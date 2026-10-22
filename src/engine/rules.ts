@@ -1,17 +1,18 @@
 // engine/rules.ts — placement rules from the product classifications (README, "Classifications")
-//   Heavy items (estimated FL05 and above, >= 1 kg) may only sit in the front 3 bays of an aisle, so heavy
-//   loads are carried the shortest way. Applies to every layout, swap and the optimizer.
+//   Bulk items (handling level FL6-7: more than 17 units per order line on average, picked as cases or
+//   pallets) may only sit in the front 3 bays of an aisle, next to the cross aisle, so pallet trucks never
+//   drive deep into an aisle. Applies to every layout, swap and the optimizer.
 //   ABC zones (optional, Challenge): the 20 slots nearest the dock are zone A, the next 30 zone B, the rest
-//   zone C; each product stays in the zone of its velocity class. Heavy items are exempt (safety first).
+//   zone C; each product stays in the zone of its velocity class. Bulk items are exempt (handling first).
 import { BAYS, slotsByDock } from './geometry';
 import type { Abc, Product } from './data';
 
-export const HEAVY_FROM = 'FL05';
-export const HEAVY_BAYS = 3;
+export const BULK_FROM = 6;   // FL6 and FL7
+export const FRONT_BAYS = 3;
 export const ZONE_SIZES: Record<Abc, number> = { A: 20, B: 30, C: 50 };
 
-export const isHeavy = (p: Product) => p.weightClass >= HEAVY_FROM; // FL05..FL07 sort as strings
-export const isFrontSlot = (slot: number) => slot % BAYS < HEAVY_BAYS;
+export const isBulk = (p: Product) => p.fl >= BULK_FROM;
+export const isFrontSlot = (slot: number) => slot % BAYS < FRONT_BAYS;
 
 // zoneOf[slot]: by distance from the dock (ties by slot id, so zone boundaries never split a pick point)
 export const zoneOf: Abc[] = (() => {
@@ -24,9 +25,9 @@ export type RuleOptions = { abcZones: boolean };
 
 // Why product p may not go into slot, or null if it may
 export function placementProblem(p: Product, slot: number, opts: RuleOptions): string | null {
-  if (isHeavy(p) && !isFrontSlot(slot))
-    return `${p.name} is heavy (${p.weightClass}, est. ${p.weightKg} kg): front ${HEAVY_BAYS} bays only`;
-  if (opts.abcZones && !isHeavy(p) && zoneOf[slot] !== p.abcVelocity)
+  if (isBulk(p) && !isFrontSlot(slot))
+    return `${p.name} is bulk (FL${p.fl}, ${p.unitsPerLine} units a line): front ${FRONT_BAYS} bays only`;
+  if (opts.abcZones && !isBulk(p) && zoneOf[slot] !== p.abcVelocity)
     return `ABC zones on: class ${p.abcVelocity} items stay in zone ${p.abcVelocity}`;
   return null;
 }

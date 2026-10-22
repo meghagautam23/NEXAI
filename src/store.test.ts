@@ -4,10 +4,10 @@ import productsJson from '../public/data/products.json'
 import ordersJson from '../public/data/orders.json'
 import affinityJson from '../public/data/affinity.json'
 import type { Affinity, Data, Orders, Product } from './engine/data'
-import { baselineLayout, originalLayout } from './engine/layouts'
+import { baselineLayout, originalLayout, samePickPoint } from './engine/layouts'
 import { scoreLayout } from './engine/sim'
 import { CHALLENGE_SWAPS, useStore } from './store'
-import { isFrontSlot, isHeavy, violations, zoneOf } from './engine/rules'
+import { isFrontSlot, isBulk, violations, zoneOf } from './engine/rules'
 
 const data: Data = { products: productsJson as Product[], orders: ordersJson as Orders, affinity: affinityJson as Affinity }
 const st = () => useStore.getState()
@@ -140,41 +140,43 @@ describe('Heatmap and leaderboard (Phase 6)', () => {
 })
 
 describe('Classification rules', () => {
-  const heavy = data.products.filter(isHeavy)
+  const bulk = data.products.filter(isBulk)
   const ruleSet = { abcZones: true }
 
-  it('every built-in layout keeps heavy items in the front bays; Baseline also keeps ABC zones', () => {
-    expect(heavy.map(p => p.weightClass).every(c => c >= 'FL05')).toBe(true)
+  it('every built-in layout keeps bulk items in the front bays; Baseline also keeps ABC zones', () => {
+    expect(bulk.every(p => p.fl >= 6) && bulk.length > 0).toBe(true)
     for (const layout of [originalLayout(data.products), baselineLayout(data.products)])
-      for (const p of heavy) expect(isFrontSlot(layout[p.id])).toBe(true)
+      for (const p of bulk) expect(isFrontSlot(layout[p.id])).toBe(true)
     expect(violations(data.products, baselineLayout(data.products), ruleSet)).toBe(0)
   })
 
-  it('refuses a swap that moves a heavy item out of the front bays, without using a swap', () => {
-    const p = heavy[0], from = st().assign[p.id]
+  it('refuses a swap that moves a bulk item out of the front bays, without using a swap', () => {
+    const p = bulk[0], from = st().assign[p.id]
     const back = [...Array(100).keys()].find(s => !isFrontSlot(s))!
     swap(from, back)
     expect(st().history).toEqual([])
-    expect(st().toast?.text).toMatch(/heavy/)
+    expect(st().toast?.text).toMatch(/bulk/)
     st().clickSlot(from) // deselect
     st().clickSlot(from); st().hoverSlot(back, 0, 0)
-    expect(st().blocked?.reason).toMatch(/heavy/)
+    expect(st().blocked?.reason).toMatch(/bulk/)
     expect(st().preview).toBeNull()
   })
 
   it('with ABC zones on, keeps products in their velocity zone (Challenge only)', () => {
     st().setAbcZones(true)
-    const a = st().assign[1]                                      // class A product
-    const cSlot = [...Array(100).keys()].find(s => zoneOf[s] === 'C' && !isHeavy(data.products[st().productAt[s]]))!
+    const As = data.products.filter(p => p.abcVelocity === 'A' && !isBulk(p))      // class A, not bulk
+    const p1 = As[0], p2 = As.find(p => !samePickPoint(st().assign[p.id], st().assign[p1.id]) && p !== p1)!
+    const a = st().assign[p1.id]
+    const cSlot = [...Array(100).keys()].find(s => zoneOf[s] === 'C' && !isFrontSlot(s) && !isBulk(data.products[st().productAt[s]]))!
     swap(a, cSlot)
     expect(st().history).toEqual([])
     expect(st().toast?.text).toMatch(/ABC zones/)
-    const aSlot2 = st().assign[2]                                 // A to A is fine
+    const aSlot2 = st().assign[p2.id]                             // A to A is fine
     st().clickSlot(a)                                             // a refused swap keeps the selection: clear it
     swap(a, aSlot2)
     expect(st().history).toHaveLength(1)
     st().setMode('sandbox')                                       // zones never apply in Sandbox
-    swap(st().assign[1], cSlot)
+    swap(st().assign[p1.id], cSlot)
     expect(st().history).toHaveLength(1)
     useStore.setState({ abcZones: false })
   })

@@ -10,27 +10,27 @@ NEXAI 2026 Hackathon, Track 4, PS 4.2 · Online Retail II (UCI, CC BY 4.0) · Re
 
 All numbers are walking distance over **all 735 orders of the test week (22–30 Nov 2011)**, which no
 layout or optimizer saw while being built: the Baseline ranks products and AI Suggest learns on
-1–21 Nov only. Every layout obeys the placement rules (heavy items in the front bays).
+1–21 Nov only. Every layout obeys the placement rules (bulk items in the front bays).
 
 | Layout | Single-order picking | 4-order carts, first come | 4-order carts, proximity |
 |---|---:|---:|---:|
-| Original (assumed "as received") | 51,884 m | 24,292 m (−53.2%) | 20,642 m (−60.2%) |
-| Baseline (fast movers nearest the dock) | 49,597 m (−4.4%) | 24,015 m (−53.7%) | 20,025 m (−61.4%) |
-| **AI Suggest** (Balanced, seed 1) | **43,233 m (−16.7%)** | 22,870 m (−55.9%) | **18,272 m (−64.8%)** |
+| Original (assumed "as received") | 51,309 m | 23,958 m (−53.3%) | 20,665 m (−59.7%) |
+| Baseline (fast movers nearest the dock) | 49,038 m (−4.4%) | 23,680 m (−53.8%) | 20,291 m (−60.5%) |
+| **AI Suggest** (Balanced, seed 1) | **44,516 m (−13.2%)** | 22,874 m (−55.4%) | **18,888 m (−63.2%)** |
 
 Percentages are against Original with single-order picking. Average time per order (walking at 1 m/s
-plus 10 s per line) goes from 2:24 (Original, single) to 1:38 (AI layout, proximity carts).
+plus 10 s per line) goes from 2:23 (Original, single) to 1:39 (AI layout, proximity carts).
 
 - **The textbook rule barely helps here.** Fast movers nearest the dock saves 4.4%: this retailer serves
   wholesalers, and big orders send the picker across the whole floor anyway (it saves about a fifth on
   one-line orders but nothing on orders of 16+ lines).
 - **Bought-together placement does.** AI Suggest puts products that are ordered together next to each
-  other: **−12.8% vs Baseline** on the unseen week, re-slotting 67 of 100 products, paid back in about
-  51 picking days (at £15/hour and 10 minutes per move, both editable).
+  other: **−9% to −13% vs Baseline** on the unseen week (Balanced plan: −9.2%, re-slotting 60 of 100 products,
+  paid back in about 64 picking days at £15/hour and 10 minutes per move, both editable).
 - **Batching is the biggest lever, and slotting still adds to it.** Four-order proximity carts cut walking
-  by about 60%; with the AI layout the carts walk another 8.8% less than with the Baseline.
-- **Distribution, not just the mean.** Per order, AI vs Baseline: mean 58.8 m vs 67.5 m, median
-  54.6 m vs 68.4 m, p90 104.2 m vs 113.8 m.
+  by about 60%; with the AI layout the carts walk another 6.9% less than with the Baseline.
+- **Distribution, not just the mean.** Per order, AI vs Baseline: mean 60.6 m vs 66.7 m, median
+  57.0 m vs 66.6 m, p90 104.8 m vs 111.4 m.
 
 ## Contents
 
@@ -98,7 +98,7 @@ from a UK online gift retailer: invoice, product code, quantity, timestamp, pric
 
 | File | Shape | Contents |
 |---|---|---|
-| `products.json` | `[{ id, code, name, picksTrain, picksMonth, valueTrain, abcVelocity, abcCost, weightKg, weightClass }]` | 100 products, `id` 0–99 in rank order; classifications below |
+| `products.json` | `[{ id, code, name, picksTrain, picksMonth, valueTrain, abcVelocity, abcCost, unitsPerLine, fl }]` | 100 products, `id` 0–99 in rank order; classifications below |
 | `orders.json` | `{ train: Order[], test: Order[] }`, `Order = { id, t, lines: [{ p, q }] }` | 1,617 train and 735 test orders |
 | `affinity.json` | `[[a, b, n]]` | Top 500 product pairs by how many train orders contain both |
 
@@ -139,9 +139,9 @@ train orders). `stats()` returns total, mean, median and p90 distance per order,
 order (walking at 1 m/s plus 10 s per line).
 
 **Layouts.** *Original* is an assumed "as received" layout: products in stock-code order fill slots
-0–99 (the dataset has no shelf positions), then any heavy item outside the front bays trades places
+0–99 (the dataset has no shelf positions), then any bulk item outside the front bays trades places
 with a light item there. *Baseline* puts the products with most train-week picks in the slots nearest
-the dock, within the placement rules: heavy items first take the nearest front slot of their ABC zone,
+the dock, within the placement rules: bulk items first take the nearest front slot of their ABC zone,
 then every other product takes the nearest free slot of its zone. Ties are broken by slot id and
 product id.
 
@@ -203,27 +203,27 @@ in `src/store.test.ts`.
 ## Classifications
 
 Industry inventories classify items several ways. The problem statement asks us to arrange by **pick
-frequency**, so that classification drives the layout; the others are shown, and weight adds one
+frequency**, so that classification drives the layout; the others are shown, and handling level adds one
 placement rule. All three are computed in `preprocess.py` and stored in `products.json`.
 
 | Classification | How it is computed | Used for |
 |---|---|---|
 | **ABC by frequency** (`abcVelocity`) | Train-week pick rank within the top 100: top 20% **A**, next 30% **B**, last 50% **C** (slotting convention; Pareto 80/95% cut-offs would make 72 of 100 items A, because pick counts are fairly even) | **Slotting.** The 20 slots nearest the dock are zone A, the next 30 zone B, the last 50 zone C. Baseline fills each zone with its class. In Challenge, *Keep ABC zones* makes it a rule. |
 | **ABC by cost** (`abcCost`) | Train-week value moved (quantity × price), Pareto: classes cover the first 80%, next 15%, last 5% of value. A 54, B 28, C 18 | **Display only.** In industry this sets cycle-count frequency and security, not walking distance. It disagrees with frequency: 9 class-A fast movers are class C by cost (cheap items picked often), so arranging by cost would push them away from the dock. |
-| **Weight FL01–FL07** (`weightClass`, `weightKg`) | **Estimated.** The dataset has no weights: `weightKg` is a typical unit weight from the first matching keyword in the description (`WEIGHT_RULES`, e.g. doormat 2.5 kg, 3-tier cakestand 2.2 kg, hot water bottle 0.45 kg; 0.15 kg if nothing matches), banded as FL01 < 0.1 kg, FL02 < 0.25, FL03 < 0.5, FL04 < 1, FL05 < 2, FL06 < 4, FL07 ≥ 4 kg. Replace with real weights when available. | **One placement rule.** |
+| **Handling level FL0–FL7** (`fl`, `unitsPerLine`) | **From the data:** the mean units per order line in the train weeks, banded ≤6 → FL0 (by hand), ≤8, ≤10, ≤12, ≤14, ≤17, ≤22, >22 → FL7 (pallet). Bigger loads come as cases, then pallets. (Method from Jayesh Pani's version of the project.) | **One placement rule.** |
 
 **Placement rules** (`src/engine/rules.ts`), enforced for the built-in layouts, every swap and the
 optimizer:
 
-1. **Heavy items front only.** Items of class FL05 and above (≥ 1 kg estimated; 5 products) may only be
-   in the front 3 bays of an aisle, nearest the front cross aisle, so heavy loads are carried the
-   shortest way. Racks have one level here, so the usual "heavy items low" rule does not apply.
-   The threshold is FL05 because only 2 of these giftware items reach FL06.
-2. **ABC zones** (optional, Challenge only). Each product stays in its velocity zone. Heavy items are
+1. **Bulk items front only.** Items at FL6–FL7 (more than 17 units a line on average; 15 products, such as
+   Rabbit Night Light, jumbo bags and cake cases) may only be in the front 3 bays of an aisle, next to
+   the cross aisle, so a pallet truck never drives deep into an aisle. The threshold is FL6 because the
+   front bays hold 30 slots and 41 products are FL4 or above.
+2. **ABC zones** (optional, Challenge only). Each product stays in its velocity zone. Bulk items are
    exempt: safety comes first.
 
 A refused swap shows the reason and does not use a swap. Rack colours can show each classification,
-with the ABC zones or the heavy zone marked on the floor.
+with the ABC zones or the bulk zone marked on the floor.
 
 ## AI Suggest
 
@@ -232,7 +232,7 @@ with the ABC zones or the heavy zone marked on the floor.
 - **Search:** simulated annealing over 45,000 product swaps (a few seconds; a 15-second cap guards slow machines), starting from the
   Baseline. 70% of proposals move a product next to one of its top-5 bought-together partners; the rest
   are random. Temperature falls from 25 m to 0.3 m. Every proposal is checked against the placement
-  rules (heavy items front; ABC zones if on).
+  rules (bulk items front; ABC zones if on).
 - **Hold-out:** it scores layouts on the **train weeks only** (1–21 Nov). The result is then scored on the
   **test week** (22–30 Nov), which it never saw. That is the number on the scoreboard.
 - **Re-slotting aware:** each product moved costs a set number of train-week metres in the objective, so
@@ -247,10 +247,10 @@ with the ABC zones or the heavy zone marked on the floor.
   payback period. The assumptions (default £15/hour, 10 minutes per move, 250 days a year) are editable in
   the card. It covers walking time in the 100-product zone modelled here, not the whole catalogue.
 
-Reference runs (45,000 swaps, seeds 1–3, test week vs Baseline): *Max saving* −11.2% to −12.8% moving
-93 products; *Balanced* −12.3% to −13.2% moving 59–67; *Fewer moves* −7.6% to −9.5% moving 36–48.
-Limiting moves does not cost much on the unseen week: it also stops the search overfitting the train
-weeks. A browser run uses a random seed, so its numbers vary slightly. Tested in
+Reference runs (45,000 swaps, seeds 1–3, test week vs Baseline): *Max saving* −11.0% to −13.3% moving
+93 products (payback ~70–83 days); *Balanced* −9.2% to −11.0% moving 60–61 (~54–64 days); *Fewer moves*
+−6.0% to −9.3% moving 32–41 (~43–62 days). Fewer moves gives up some saving but pays back sooner.
+A browser run uses a random seed, so its numbers vary slightly. Tested in
 `src/engine/optimizer.test.ts`.
 
 ## Peak-day rush
@@ -276,9 +276,9 @@ Peak ×3 (329 orders), cut-off 17:00:
 
 | Pickers, cart | Original | Baseline | AI Suggest |
 |---|---:|---:|---:|
-| 1, single orders | 47% | 47% | 50% |
-| 2, single orders | 82% | 83% | 86% |
-| 2, carts of 4 | 93% | 93% | 94% |
+| 1, single orders | 47% | 47% | 49% |
+| 2, single orders | 82% | 83% | 85% |
+| 2, carts of 4 | 92% | 93% | 93% |
 
 A second picker doubles throughput; carts and a better layout then close most of the remaining gap
 without a third. Tested in `src/engine/rush.test.ts`.
@@ -291,10 +291,10 @@ can place it. `src/engine/newItem.ts` does what slotting teams do for a new SKU:
 1. **Look-alikes.** Product names carry collection and type words ("Jumbo Bag … Retrospot", "Hot Water
    Bottle …"), and customers buy within collections. The three most similar products (shared words, plus
    the same family) predict its picks per three weeks, its velocity class, and which orders it joins.
-   Weight class is estimated from the name with the same rules as the pipeline, or set by hand.
+   Its handling level (FL) comes from its look-alikes' units per line, or is set by hand.
 2. **Make room.** The floor is full, so the slowest mover goes to reserve storage.
 3. **Test every slot.** Starting from the current layout, the new item is tried in every allowed slot
-   (heavy items front only) with the real simulator on the train weeks; a slot other than the freed one
+   (bulk items front only) with the real simulator on the train weeks; a slot other than the freed one
    moves its product into the freed slot. The best three are recommended with the walking saved per day
    and the nearest look-alike.
 4. **Place it.** This loads a what-if copy of the warehouse in Sandbox: the retired product's lines are
@@ -303,8 +303,9 @@ can place it. `src/engine/newItem.ts` does what slotting teams do for a new SKU:
    **Back to real data** restores the real warehouse; what-if results are not saved to the leaderboard.
 
 Example: *Jumbo Bag Woodland Animals* looks like Jumbo Bag Alphabet, Apples and 50'S Christmas, so expect
-about 113 picks in three weeks (class B). Hand Warmer Red Retrospot (80 picks) goes to reserve. The best
-slot sits 2.4 m from Jumbo Bag Apples and walks about 48 m a day less than simply using the freed slot.
+about 113 picks in three weeks (class B) at about 16 units a line (FL5). Hand Warmer Red Retrospot (80 picks)
+goes to reserve. The best slot sits 4.8 m from Jumbo Bag Apples and walks about 16 m a day less than simply
+using the freed slot.
 Tested in `src/engine/newItem.test.ts`.
 
 ## Batch picking
@@ -320,28 +321,28 @@ orders at the dock.
   adds the least walking joins, until the cart is full. It depends on the layout, so it rewards good
   slotting.
 
-Test week, Baseline layout (single-order picking: 49,597 m, 735 trips):
+Test week, Baseline layout (single-order picking: 49,038 m, 735 trips):
 
 | Cart | First come | Proximity |
 |---|---:|---:|
-| 2 orders | 35,681 m (−28.1%) | 31,208 m (−37.1%) |
-| 3 orders | 28,199 m (−43.1%) | 23,908 m (−51.8%) |
-| **4 orders** | 24,015 m (−51.6%) | **20,025 m (−59.6%), 213 trips** |
-| 5 orders | 21,598 m (−56.5%) | 18,272 m (−63.2%) |
+| 2 orders | 35,539 m (−27.5%) | 31,589 m (−35.6%) |
+| 3 orders | 27,887 m (−43.1%) | 23,921 m (−51.2%) |
+| **4 orders** | 23,680 m (−51.7%) | **20,291 m (−58.6%), 214 trips** |
+| 5 orders | 21,459 m (−56.2%) | 18,351 m (−62.6%) |
 
-Average time per order falls from 2:20 to 1:40 with 4-order proximity carts. Batching saves far more
+Average time per order falls from 2:20 to 1:41 with 4-order proximity carts. Batching saves far more
 walking than slotting alone, and the two add up: the panel compares every layout (Original, Baseline,
 Yours, AI Suggest) under each policy. Sorting time at the dock is not included. Tick **Replay batches in
 3D** to watch the picker walk 10 sample carts. Tested in `src/engine/batching.test.ts`.
 
 ## Testing and CI
 
-- **61 TypeScript tests** (Vitest): geometry never cuts through racks; the animation walks exactly the
+- **82 TypeScript tests** (Vitest): geometry never cuts through racks; the animation walks exactly the
   scored distance; incremental swap scoring equals a full rescore; layouts obey the rules; game rules
   (swaps, limits, undo, submit, zones); leaderboard storage failures; optimizer rules, determinism and
   hold-out; move explanations; business-case maths; batching limits and savings.
-- **6 Python tests** (pytest) on a hand-made sheet: every cleaning rule, the split, the train-only top 100
-  and affinity, the classification cut-offs and weight bands.
+- **7 Python tests** (pytest) on a hand-made sheet: every cleaning rule, the split, the train-only top 100
+  and affinity, the classification cut-offs and FL bands.
 - `scripts/validate_data.py` checks the committed JSON against every data rule.
 - **CI** (`.github/workflows/ci-cd.yml`): data checks, lint, typecheck, tests and build on every push and
   pull request. The Vercel deploy job needs `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`
@@ -353,8 +354,8 @@ Yours, AI Suggest) under each policy. Sorting time at the dock is not included. 
   layout (stock-code order) are our assumptions.
 - **Scope.** The top 100 products cover 21% of November's order lines; results describe this 100-product
   pick zone, about 92 orders a day, not the whole catalogue. The £ figures scale with the zone.
-- **Weights are estimated** from product descriptions (`WEIGHT_RULES` in `preprocess.py`); replace them
-  with real weights or your FL definitions when available.
+- **Handling levels** come from units per order line, a proxy for case and pallet handling; real
+  case sizes or weights would refine them.
 - **Routing** is nearest-neighbour along aisle centerlines, the same for every layout. Racks have one
   level. Walking is 1 m/s and picking 10 s per line for every layout, so only walking differs.
 - **Batch picking** excludes sorting time at the dock.

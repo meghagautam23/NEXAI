@@ -69,11 +69,15 @@ def test_build_is_deterministic():
 
 
 def test_classifications():
-    from preprocess import abc_by_rank, abc_by_share, estimate_weight, weight_class
+    from preprocess import abc_by_rank, abc_by_share, handling_level
     assert [abc_by_rank(100, i) for i in (0, 19, 20, 49, 50, 99)] == ["A", "A", "B", "B", "C", "C"]
     assert abc_by_share({"x": 80, "y": 15, "z": 5}) == {"x": "A", "y": "B", "z": "C"}
-    assert estimate_weight("Doormat Keep Calm") == 2.5
-    assert estimate_weight("Hot Water Bottle Keep Calm") == 0.45   # keyword order: before "HEART"
-    assert estimate_weight("Something unknown") == 0.15
-    assert [weight_class(kg) for kg in (0.05, 0.1, 0.45, 0.9, 1.2, 2.5, 6)] == \
-        ["FL01", "FL02", "FL03", "FL04", "FL05", "FL06", "FL07"]
+    assert [handling_level(u) for u in (1, 6, 6.1, 9, 14, 17, 22, 22.5, 200)] == [0, 0, 1, 2, 4, 5, 6, 7, 7]
+
+
+def test_units_per_line_come_from_train_lines():
+    products, *_ = run()
+    by = {p["code"]: p for p in products}
+    assert by["22086"]["unitsPerLine"] == 6.0       # one train line of 4 + 2 units, merged
+    assert by["23084"]["unitsPerLine"] == 3.0
+    assert by["85049A"]["fl"] == 0

@@ -5,7 +5,7 @@ import { Color, InstancedMesh, Object3D } from 'three';
 import { BAY } from '../engine/geometry';
 import { samePickPoint } from '../engine/layouts';
 import { useStore } from '../store';
-import { COST, VELOCITY, WEIGHT, weightIndex } from '../ui/palette';
+import { COST, FL, VELOCITY } from '../ui/palette';
 import { RACK_DEPTH, RACK_HEIGHT, slotBox } from './coords';
 
 const SLOTS = 100;
@@ -58,7 +58,7 @@ export function Racks() {
       assign.forEach((slot, p) => {
         const pr = products[p];
         m.setColorAt(slot, c.set(rackColor === 'velocity' ? VELOCITY[pr.abcVelocity]
-          : rackColor === 'cost' ? COST[pr.abcCost] : WEIGHT[weightIndex(pr.weightClass)]));
+          : rackColor === 'cost' ? COST[pr.abcCost] : FL[pr.fl]));
       });
     } else {
       assign.forEach((slot, p) => m.setColorAt(slot, c.lerpColors(HIGH, LOW, rank.get(p)! / last)));

@@ -5,21 +5,18 @@ import ordersJson from '../../public/data/orders.json'
 import affinityJson from '../../public/data/affinity.json'
 import type { Affinity, Data, Orders, Product } from './data'
 import { baselineLayout } from './layouts'
-import { analoguesOf, estimateWeight, planNewItem, similarity, weightClassOf } from './newItem'
-import { isFrontSlot } from './rules'
+import { analoguesOf, flOf, planNewItem, similarity } from './newItem'
+import { isFrontSlot, violations } from './rules'
 import { makeEngine } from './sim'
 
 const data: Data = { products: productsJson as Product[], orders: ordersJson as Orders, affinity: affinityJson as Affinity }
 const base = baselineLayout(data.products)
-const plan = (name: string, weightClass?: string) => planNewItem(data, base, { name, weightClass }, 18)
+const plan = (name: string, fl?: number) => planNewItem(data, base, { name, fl }, 18)
 const isPermutation = (a: number[]) => [...a].sort((x, y) => x - y).every((s, i) => s === i)
 
 describe('estimates', () => {
-  it('weights match the data pipeline for every product', () => {
-    for (const p of data.products) {
-      expect(estimateWeight(p.name)).toBe(p.weightKg)
-      expect(weightClassOf(p.weightKg)).toBe(p.weightClass)
-    }
+  it('handling levels use the same bands as the data pipeline', () => {
+    for (const p of data.products) expect(flOf(p.unitsPerLine)).toBe(p.fl)
   })
   it('finds look-alikes by shared words and family', () => {
     expect(similarity('Jumbo Bag Woodland Animals', 'Jumbo Bag Red Retrospot'))
@@ -47,9 +44,11 @@ describe('planNewItem', () => {
   })
 
   it('tests every allowed slot, best first, and each option is a valid layout', () => {
-    expect(p.options.length).toBeGreaterThan(90)
+    // Every slot is tried; slots are skipped only when the rules forbid them (bulk items stay in front)
+    expect(p.options.length).toBeGreaterThan(80)
     p.options.forEach((o, i) => {
       expect(isPermutation(o.assign)).toBe(true)
+      expect(violations(p.world.products, o.assign, { abcZones: false })).toBe(0)
       expect(o.assign[p.retire]).toBe(o.slot)
       if (i) expect(o.delta).toBeGreaterThanOrEqual(p.options[i - 1].delta)
     })
@@ -60,10 +59,10 @@ describe('planNewItem', () => {
     expect(walk(p.options[0].assign) - walk(freed.assign)).toBeCloseTo(p.options[0].delta - freed.delta, 6)
   })
 
-  it('keeps a heavy new item in the front bays', () => {
-    const h = plan('Regency Cakestand 2 Tier')
-    expect(h.heavy).toBe(true)
-    h.options.forEach(o => expect(isFrontSlot(o.slot)).toBe(true))
-    expect(plan('Regency Cakestand 2 Tier', 'FL02').heavy).toBe(false)
+  it('keeps a bulk new item in the front bays', () => {
+    const b = plan('Jumbo Bag Woodland Animals', 7)
+    expect(b.bulk).toBe(true)
+    b.options.forEach(o => expect(isFrontSlot(o.slot)).toBe(true))
+    expect(plan('Jumbo Bag Woodland Animals', 1).bulk).toBe(false)
   })
 })

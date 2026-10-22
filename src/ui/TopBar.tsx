@@ -5,7 +5,7 @@ import { useStore, type Mode, type Panel, type RackColor } from '../store';
 const MODES: [Mode, string][] = [['challenge', 'Challenge'], ['sandbox', 'Sandbox']];
 const VIEWS: [RackColor, string][] = [
   ['popularity', 'Popularity'], ['visits', 'Visit heatmap'],
-  ['velocity', 'ABC by frequency'], ['cost', 'ABC by cost'], ['weight', 'Weight class (est.)'],
+  ['velocity', 'ABC by frequency'], ['cost', 'ABC by cost'], ['weight', 'Handling level (FL)'],
 ];
 
 export function TopBar() {

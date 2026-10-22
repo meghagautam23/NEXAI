@@ -1,7 +1,7 @@
 // ui/Overlays.tsx — rack tooltip with swap preview, toast, and the Challenge result card
 import { useState } from 'react';
 import { samePickPoint } from '../engine/layouts';
-import { isHeavy, zoneOf } from '../engine/rules';
+import { isBulk, zoneOf } from '../engine/rules';
 import { categoryOf } from '../engine/categories';
 import { useStore } from '../store';
 import { fmtDelta, fmtM, fmtPct } from './format';
@@ -18,7 +18,7 @@ export function Tooltip() {
       <div className="muted">{categoryOf(p).label}</div>
       <div className="muted">{p.picksTrain} picks in 3 weeks · rank {p.id + 1} · slot {hover.slot} (zone {zoneOf[hover.slot]})</div>
       <div className="muted">
-        Frequency {p.abcVelocity} · Cost {p.abcCost} · {p.weightClass} ≈{p.weightKg} kg (est.){isHeavy(p) ? ' · heavy' : ''}
+        Frequency {p.abcVelocity} · Cost {p.abcCost} · FL{p.fl} ({p.unitsPerLine} a line){isBulk(p) ? ' · bulk' : ''}
       </div>
       {target && blocked?.slot === hover.slot && <div className="bad">Not allowed: {blocked.reason}</div>}
       {target && samePickPoint(selected, hover.slot) && <div className="muted">Same pick point: no change</div>}

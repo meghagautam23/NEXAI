@@ -5,8 +5,8 @@ export type Product = {
   valueTrain: number;  // £ moved in the train weeks (quantity x price)
   abcVelocity: Abc;    // by pick rank: top 20% A, next 30% B, last 50% C — drives slotting
   abcCost: Abc;        // by value moved, Pareto 80/95% — display only
-  weightKg: number;    // ESTIMATED from the description (the dataset has no weights)
-  weightClass: string; // FL01 (lightest) .. FL07 (heaviest), banded from weightKg
+  unitsPerLine: number; // mean units per order line in the train weeks
+  fl: number;           // handling level 0 (by hand) .. 7 (pallet), banded from unitsPerLine
 };
 export type Line = { p: number; q: number };
 export type Order = { id: string; t: string; lines: Line[] };

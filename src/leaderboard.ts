@@ -11,7 +11,7 @@ export type Entry = {
   assign: number[];   // the layout, so it can be loaded again
 };
 
-// v2: placement rules (heavy items, ABC zones) changed the scores, so v1 results are not comparable
+// v2: placement rules (bulk items, ABC zones) changed the scores, so v1 results are not comparable
 const KEY = 'warehouse-twin:leaderboard:v2';
 export const MAX_ENTRIES = 50;
 

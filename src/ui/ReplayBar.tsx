@@ -2,7 +2,7 @@
 import { useShallow } from 'zustand/react/shallow';
 import { SPEEDS, useStore } from '../store';
 import { fmtM, fmtTime } from './format';
-import { COST, HEAVY_FLOOR, VELOCITY, WEIGHT } from './palette';
+import { BULK_FLOOR, COST, FL, VELOCITY } from './palette';
 
 export function ReplayBar() {
   const s = useStore(useShallow(s => ({
@@ -57,8 +57,8 @@ function Legend() {
       </>}
       {view === 'cost' && (['A', 'B', 'C'] as const).map(k => chip(COST[k], `cost ${k}`))}
       {view === 'weight' && <>
-        {chip(`linear-gradient(90deg,${WEIGHT.join(',')})`, 'FL01 → FL07 (estimated)')}
-        {chip(HEAVY_FLOOR, 'heavy zone (FL05+)')}
+        {chip(`linear-gradient(90deg,${FL.join(',')})`, 'FL0 by hand → FL7 pallet')}
+        {chip(BULK_FLOOR, 'bulk zone (FL6–7)')}
       </>}
       {chip('#8b3fd9', 'selected')}
     </div>

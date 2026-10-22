@@ -29,33 +29,13 @@ CODE = r"^\d{5}[A-Z]{0,2}$"  # five digits plus up to two letters; drops POST, D
 VELOCITY_SPLIT = (0.2, 0.5)
 # Cost ABC: by train-week value moved (quantity x price), Pareto cut-offs at 80% and 95% of value.
 COST_SPLIT = (0.8, 0.95)
-# Weight FL01-FL07: the dataset has NO weights. Unit weight is ESTIMATED from the product description
-# by the first matching keyword below (assumed typical giftware weights), then banded.
-WEIGHT_BANDS = [(0.1, "FL01"), (0.25, "FL02"), (0.5, "FL03"), (1.0, "FL04"), (2.0, "FL05"), (4.0, "FL06")]
-HEAVIEST = "FL07"  # 4 kg and over
-DEFAULT_KG = 0.15
-WEIGHT_RULES = [  # (keyword in upper-case description, estimated kg per unit); first match wins
-    ("DOORMAT", 2.5), ("CAKESTAND", 2.2), ("TEA SET", 1.8), ("CAKE TINS", 1.2), ("BAKING SET", 0.9),
-    ("SLATE", 0.8), ("WOODEN FRAME", 0.6), ("JELLY MOULDS", 0.6), ("RECIPE BOX", 0.5),
-    ("ALARM CLOCK", 0.45), ("HOT WATER BOTTLE", 0.45), ("KNEELING PAD", 0.35), ("DOMINOES", 0.35),
-    ("LARGE WHITE HEART OF WICKER", 0.35), ("HEART OF WICKER LARGE", 0.35), ("T-LIGHT", 0.3),
-    ("NIGHT LIGHT", 0.3), ("ZINC", 0.3), ("GIANT", 0.2), ("CRACKERS", 0.15), ("WICKER", 0.15),
-    ("SEWING KIT", 0.15), ("ROLL WRAP", 0.15), ("MINI LIGHTS", 0.15), ("NAUGHTS", 0.15),
-    ("PICK UP STICKS", 0.15), ("KNITTING", 0.15), ("HAND WARMER", 0.12), ("JUMBO", 0.12),
-    ("PAPER CHAIN", 0.1), ("CARD", 0.1), ("SNAP", 0.1), ("STOCKING", 0.1), ("LUNCH BAG", 0.08),
-    ("BUNTING", 0.08), ("HARMONICA", 0.08), ("WOODEN", 0.08), ("CHARLOTTE BAG", 0.06),
-    ("CAKE CASES", 0.05), ("NAPKINS", 0.05), ("PENCIL", 0.05), ("POPCORN", 0.05), ("RIBBONS", 0.05),
-    ("DECORATION", 0.05), ("ORNAMENT", 0.03),
-]
+# Handling level FL0-FL7, from the data: the mean units per order line in the train weeks. Bigger loads
+# come as cases, then pallets: <=6 units -> FL0 (by hand) ... >22 units -> FL7 (pallet truck / forklift).
+FL_BANDS = [6, 8, 10, 12, 14, 17, 22]
 
 
-def estimate_weight(name: str) -> float:
-    up = name.upper()
-    return next((kg for key, kg in WEIGHT_RULES if key in up), DEFAULT_KG)
-
-
-def weight_class(kg: float) -> str:
-    return next((band for limit, band in WEIGHT_BANDS if kg < limit), HEAVIEST)
+def handling_level(units_per_line: float) -> int:
+    return next((i for i, b in enumerate(FL_BANDS) if units_per_line <= b), 7)
 
 
 def abc_by_rank(n: int, i: int) -> str:
@@ -124,16 +104,17 @@ def build(df: pd.DataFrame, report: dict):
     names = (df.dropna(subset=["Description"]).groupby("StockCode")["Description"].first()
                .str.strip().str.title())
     value_train = lines[lines["train"]].groupby("StockCode")["value"].sum()
+    units_train = lines[lines["train"]].groupby("StockCode")["q"].mean()
     cost = abc_by_share({c: float(value_train[c]) for c in top})
     products = []
     for i, c in enumerate(top):
         name = str(names.get(c, "Unknown"))
-        kg = estimate_weight(name)
+        upl = round(float(units_train[c]), 1)
         products.append({"id": i, "code": c, "name": name,
                          "picksTrain": int(picks_train[c]), "picksMonth": int(picks_month[c]),
                          "valueTrain": round(float(value_train[c]), 2),
                          "abcVelocity": abc_by_rank(len(top), i), "abcCost": cost[c],
-                         "weightKg": kg, "weightClass": weight_class(kg)})
+                         "unitsPerLine": upl, "fl": handling_level(upl)})
 
     kept = lines[lines["StockCode"].isin(pid)]
     report["order lines kept (top 100 only)"] = len(kept)

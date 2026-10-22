@@ -1,6 +1,6 @@
 // engine/newItem.ts — slotting a NEW product that has no pick history yet (the cold-start problem).
 //   1. Look-alikes: products whose descriptions share words (collection and type: "Jumbo Bag ... Retrospot")
-//      or family predict how often it will be picked and which orders it will join.
+//      or family predict how often it will be picked, how many units a line, and which orders it will join.
 //   2. Make room: the floor is full, so the slowest mover goes to reserve storage.
 //   3. Every slot is tried with the real simulator on the train weeks (rules respected); the best few are
 //      recommended. Placing the new item builds a what-if copy of the data with it in.
@@ -10,24 +10,9 @@ import { D, BAYS } from './geometry';
 import { placementProblem, zoneOf } from './rules';
 import { makeEngine } from './sim';
 
-// ---- weight estimate: same rules and bands as preprocess.py (a test keeps them in step) ----
-export const WEIGHT_RULES: [string, number][] = [
-  ['DOORMAT', 2.5], ['CAKESTAND', 2.2], ['TEA SET', 1.8], ['CAKE TINS', 1.2], ['BAKING SET', 0.9],
-  ['SLATE', 0.8], ['WOODEN FRAME', 0.6], ['JELLY MOULDS', 0.6], ['RECIPE BOX', 0.5],
-  ['ALARM CLOCK', 0.45], ['HOT WATER BOTTLE', 0.45], ['KNEELING PAD', 0.35], ['DOMINOES', 0.35],
-  ['LARGE WHITE HEART OF WICKER', 0.35], ['HEART OF WICKER LARGE', 0.35], ['T-LIGHT', 0.3],
-  ['NIGHT LIGHT', 0.3], ['ZINC', 0.3], ['GIANT', 0.2], ['CRACKERS', 0.15], ['WICKER', 0.15],
-  ['SEWING KIT', 0.15], ['ROLL WRAP', 0.15], ['MINI LIGHTS', 0.15], ['NAUGHTS', 0.15],
-  ['PICK UP STICKS', 0.15], ['KNITTING', 0.15], ['HAND WARMER', 0.12], ['JUMBO', 0.12],
-  ['PAPER CHAIN', 0.1], ['CARD', 0.1], ['SNAP', 0.1], ['STOCKING', 0.1], ['LUNCH BAG', 0.08],
-  ['BUNTING', 0.08], ['HARMONICA', 0.08], ['WOODEN', 0.08], ['CHARLOTTE BAG', 0.06],
-  ['CAKE CASES', 0.05], ['NAPKINS', 0.05], ['PENCIL', 0.05], ['POPCORN', 0.05], ['RIBBONS', 0.05],
-  ['DECORATION', 0.05], ['ORNAMENT', 0.03],
-];
-const WEIGHT_BANDS: [number, string][] = [[0.1, 'FL01'], [0.25, 'FL02'], [0.5, 'FL03'], [1, 'FL04'], [2, 'FL05'], [4, 'FL06']];
-export const estimateWeight = (name: string) => WEIGHT_RULES.find(([k]) => name.toUpperCase().includes(k))?.[1] ?? 0.15;
-export const weightClassOf = (kg: number) => WEIGHT_BANDS.find(([limit]) => kg < limit)?.[1] ?? 'FL07';
-export const WEIGHT_CLASS_KG: Record<string, number> = { FL01: 0.05, FL02: 0.15, FL03: 0.35, FL04: 0.7, FL05: 1.5, FL06: 3, FL07: 5 };
+// ---- handling level: the same bands as preprocess.py (units per order line -> FL0..FL7) ----
+const FL_BANDS = [6, 8, 10, 12, 14, 17, 22];
+export const flOf = (unitsPerLine: number) => { const i = FL_BANDS.findIndex(b => unitsPerLine <= b); return i < 0 ? 7 : i; };
 
 // ---- look-alikes ----
 const STOP = new Set(['SET', 'OF', 'THE', 'AND', 'BOX', 'PACK', 'IN', 'WITH', 'DESIGN', 'ASSORTED', 'COLOUR', 'SMALL', 'LARGE', 'MINI']);
@@ -82,7 +67,7 @@ export function affinityFrom(orders: Order[], top = 500): Affinity {
 
 const abcByRank = (rank: number, n: number): Abc => (rank < 0.2 * n ? 'A' : rank < 0.5 * n ? 'B' : 'C');
 
-export type NewItemSpec = { name: string; weightClass?: string };
+export type NewItemSpec = { name: string; fl?: number };
 export type SlotOption = {
   slot: number; zone: Abc; aisle: number; bay: number;
   delta: number;          // train-week metres vs putting it straight into the freed slot
@@ -92,7 +77,7 @@ export type SlotOption = {
 };
 export type NewItemPlan = {
   name: string; symbol: string; family: string;
-  weightKg: number; weightClass: string; weightEstimated: boolean; heavy: boolean;
+  unitsPerLine: number; fl: number; flEstimated: boolean; bulk: boolean;
   analogues: Analogue[]; predictedPicks: number; velocity: Abc;
   retire: number;         // product id sent to reserve; the new item takes over this id
   world: Data;            // data with the new item in and the retired product out
@@ -104,9 +89,6 @@ export function planNewItem(data: Data, assign: readonly number[], spec: NewItem
   const { products } = data;
   const name = spec.name.trim();
   const cat = categoryOf({ name });
-  const est = estimateWeight(name);
-  const weightClass = spec.weightClass ?? weightClassOf(est);
-  const weightKg = spec.weightClass ? WEIGHT_CLASS_KG[spec.weightClass] : est;
 
   // The slowest mover goes to reserve; the new item reuses its id
   const retire = [...products].sort((a, b) => a.picksTrain - b.picksTrain || b.id - a.id)[0].id;
@@ -114,6 +96,11 @@ export function planNewItem(data: Data, assign: readonly number[], spec: NewItem
   const analogues = analoguesOf(name, others);
   const wsum = analogues.reduce((s, a) => s + a.similarity, 0);
   const median = [...others].sort((a, b) => a.picksTrain - b.picksTrain)[others.length >> 1].picksTrain;
+  // Units per line (so the handling level) like its look-alikes, unless set by hand
+  const unitsPerLine = Math.round(10 * (wsum
+    ? analogues.reduce((s, a) => s + a.similarity * products[a.product].unitsPerLine, 0) / wsum
+    : [...others].sort((a, b) => a.unitsPerLine - b.unitsPerLine)[others.length >> 1].unitsPerLine)) / 10;
+  const fl = spec.fl ?? flOf(unitsPerLine);
   const predictedPicks = Math.max(1, Math.round(wsum
     ? analogues.reduce((s, a) => s + a.similarity * products[a.product].picksTrain, 0) / wsum : median));
   const rank = others.filter(p => p.picksTrain > predictedPicks).length;
@@ -136,7 +123,7 @@ export function planNewItem(data: Data, assign: readonly number[], spec: NewItem
 
   const item: Product = {
     id: retire, code: 'NEW', name, picksTrain: count(train), picksMonth: count(train) + count(test),
-    valueTrain: 0, abcVelocity: velocity, abcCost, weightKg, weightClass,
+    valueTrain: 0, abcVelocity: velocity, abcCost, unitsPerLine, fl,
   };
   // Velocity classes shift with the new item's rank
   const ranked = [...others, item].sort((a, b) => b.picksTrain - a.picksTrain || a.id - b.id);
@@ -169,8 +156,8 @@ export function planNewItem(data: Data, assign: readonly number[], spec: NewItem
   options.sort((x, y) => x.delta - y.delta || Number(x.moved !== null) - Number(y.moved !== null) || x.slot - y.slot);
 
   return {
-    name, symbol: cat.symbol, family: cat.label, weightKg, weightClass, weightEstimated: !spec.weightClass,
-    heavy: weightClass >= 'FL05', analogues, predictedPicks: item.picksTrain, velocity: classOf.get(retire)!,
+    name, symbol: cat.symbol, family: cat.label, unitsPerLine, fl, flEstimated: spec.fl === undefined,
+    bulk: fl >= 6, analogues, predictedPicks: item.picksTrain, velocity: classOf.get(retire)!,
     retire, world, options, trainDays,
   };
 }

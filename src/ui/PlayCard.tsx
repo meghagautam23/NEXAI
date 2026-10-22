@@ -56,7 +56,7 @@ export function PlayCard() {
           <li>You plan on 1–21 Nov. {challenge
             ? 'Your score is the next week (22–30 Nov), hidden until you submit.'
             : 'Every score is shown live.'}</li>
-          <li>Heavy items (FL05+, estimated weight) must stay in the front 3 bays.</li>
+          <li>Bulk items (FL6–7, bought by the case) must stay in the front 3 bays, next to the cross aisle.</li>
         </ul>
       </details>
     </section>
