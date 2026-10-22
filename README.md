@@ -253,6 +253,36 @@ Limiting moves does not cost much on the unseen week: it also stops the search o
 weeks. A browser run uses a random seed, so its numbers vary slightly. Tested in
 `src/engine/optimizer.test.ts`.
 
+## Peak-day rush
+
+**⏱ Peak rush** in the top bar (`src/engine/rush.ts`). One shift against a courier cut-off, with real
+orders arriving at their real invoice times.
+
+- **Volume:** the busiest day of the test week (Tue 22 Nov, 119 orders, the busiest of the month), or a
+  Christmas-peak surge: the orders of the 2 or 3 busiest test-week days merged into one shift at their real
+  times of day (225 or 329 real orders).
+- **Shift:** pickers start at 08:00. Each free picker takes the oldest waiting order, or a cart of waiting
+  orders (the oldest, then those adding the least walking), walks, picks at 10 s a line and packs at 90 s an
+  order. An order ships **on time** if it is packed by the cut-off (15:00, 16:00 or 17:00); orders arriving
+  after the cut-off ship tomorrow and are not counted.
+- **Score:** share of orders shipped on time, with stars (★ 80%, ★★ 90%, ★★★ 97%), compared for every
+  layout, plus the last order packed and the average wait. Staff cost per shift is shown for the chosen
+  number of pickers.
+- **Watch it:** the whole shift replays in 3D in about two minutes at 300×: each picker in its own colour,
+  orange racks for the running trips, and a shift clock with arrived, waiting, shipped, on-time, missed
+  and next-day counters.
+
+Peak ×3 (329 orders), cut-off 17:00:
+
+| Pickers, cart | Original | Baseline | AI Suggest |
+|---|---:|---:|---:|
+| 1, single orders | 47% | 47% | 50% |
+| 2, single orders | 82% | 83% | 86% |
+| 2, carts of 4 | 93% | 93% | 94% |
+
+A second picker doubles throughput; carts and a better layout then close most of the remaining gap
+without a third. Tested in `src/engine/rush.test.ts`.
+
 ## New products (cold start)
 
 **+ New item** in the top bar. A new product has no pick history, so neither the Baseline nor AI Suggest

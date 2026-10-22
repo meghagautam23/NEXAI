@@ -158,7 +158,7 @@ table.data button { padding: 2px 8px; font-size: 12px; }
 .drawer-body h3 { font-size: 13px; }
 .drawer-body h3 .muted { font-weight: 400; }
 .field { display: flex; align-items: center; gap: 10px; }
-.field .label { width: 40px; }
+.field .label { width: 56px; flex: none; }
 .assume { display: flex; align-items: center; gap: 8px; }
 .assume span:first-child { width: 140px; }
 details summary { cursor: pointer; color: var(--accent); font-weight: 500; }
@@ -195,6 +195,24 @@ details p { margin-top: 8px; }
   background: #fff4dc; border: 1px solid #f0c36a; color: #6b4a00; white-space: nowrap; box-shadow: var(--shadow);
 }
 .app.drawer-open .whatif { left: calc(50% - var(--drawer) / 2); }
+
+.mini-stars { letter-spacing: 1px; color: var(--line-strong); white-space: nowrap; }
+.mini-stars .on { color: #f2b01e; }
+.stars.big .mini-stars { font-size: 30px; }
+
+.rushclock {
+  left: 50%; transform: translateX(-50%); bottom: var(--gap); width: min(760px, calc(100vw - 2 * var(--gap)));
+  padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.clock-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.clock { font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.clock-meta { display: flex; flex-direction: column; margin-right: auto; }
+.timeline { position: relative; height: 8px; border-radius: 4px; background: var(--bg); }
+.timeline .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--accent); }
+.timeline .cut { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1px; border-radius: 2px; background: var(--bad); }
+.rush-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.rush-stats b { font-size: 18px; }
+.app:has(.rushclock) .board { display: none; }
 
 /* ---------- overlays ---------- */
 .tooltip {
@@ -238,6 +256,7 @@ details p { margin-top: 8px; }
   .brand .sub { display: none; }
 }
 @media (max-width: 900px) {
+  .rush-stats { grid-template-columns: repeat(3, 1fr); }
   :root { --topbar: 104px; --drawer: 100vw; }
   .topbar { flex-wrap: wrap; gap: 8px 12px; padding: 8px var(--gap); align-content: center; }
   .brand { flex: 1 1 100%; }

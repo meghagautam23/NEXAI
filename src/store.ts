@@ -9,6 +9,8 @@ import { baselineLayout, originalLayout, samePickPoint } from './engine/layouts'
 import { sampleOrders } from './engine/replay';
 import { DEFAULT_BATCH, type BatchOptions } from './engine/batching';
 import type { NewItemPlan } from './engine/newItem';
+import { DEFAULT_RUSH, rushOrders, simulateRush, type RushResult, type RushStats } from './engine/rush';
+import type { Order } from './engine/data';
 import { makeEngine, scoreLayout, type Engine, type Stats } from './engine/sim';
 import { addEntry, readBoard, type Entry } from './leaderboard';
 import { swapProblem } from './engine/rules';
@@ -50,7 +52,17 @@ export const SPEEDS = [1, 10, 50] as const;
 export type ReplayHud = {
   index: number; count: number; orders: number; orderId: string; lines: number; dist: number; time: number; done: boolean;
 };
-export type Panel = 'ai' | 'board' | 'batch' | 'newItem';
+export type Panel = 'ai' | 'board' | 'batch' | 'newItem' | 'rush';
+
+// Peak-day rush settings: volume = how many of the busiest days' orders arrive in one shift
+export type RushSettings = { days: number; pickers: number; cart: number; cutoffHour: number; packSec: number };
+export const DEFAULT_RUSH_SETTINGS: RushSettings = { days: 3, pickers: 2, cart: 1, cutoffHour: 17, packSec: DEFAULT_RUSH.packSec };
+export const rushOptions = (s: RushSettings) => ({ ...DEFAULT_RUSH, pickers: s.pickers, cart: s.cart, cutoff: s.cutoffHour * 3600, packSec: s.packSec });
+export type RushState = {
+  settings: RushSettings; active: boolean; playing: boolean; speed: number; clock: number; end: number;
+  orders: Order[] | null; result: RushResult | null; stats: RushStats | null; finished: boolean;
+};
+export const RUSH_SPEEDS = [120, 300, 900] as const;
 type Ref = { original: Stats; baseline: Stats };
 
 type State = {
@@ -80,6 +92,8 @@ type State = {
   boardOpen: boolean;
   batchOpen: boolean;
   newItemOpen: boolean;
+  rushOpen: boolean;
+  rush: RushState;
   realData: Data | null;       // the real data while a what-if (new item) world is loaded
   whatIf: { name: string; symbol: string; retired: string; slot: number } | null;
   batch: BatchOptions;          // cart for batch picking
@@ -114,6 +128,10 @@ type State = {
   setBatch: (patch: Partial<BatchOptions>) => void;
   setReplayBatches: (on: boolean) => void;
   placeNewItem: (plan: NewItemPlan, option: number) => void;
+  setRush: (patch: Partial<RushState>) => void;
+  setRushSettings: (patch: Partial<RushSettings>) => void;
+  startRush: () => void;
+  stopRush: () => void;
   exitWhatIf: () => void;
   setAbcZones: (on: boolean) => void;
 
@@ -175,7 +193,9 @@ export const useStore = create<State>()((set, get) => {
     assumptions: DEFAULT_ASSUMPTIONS,
     rackColor: 'popularity', showIcons: true, visits: noVisits(), board: readBoard(), boardOpen: false, savedRound: false,
     batchOpen: false, batch: DEFAULT_BATCH, replayBatches: false,
-    newItemOpen: false, realData: null, whatIf: null,
+    newItemOpen: false, realData: null, whatIf: null, rushOpen: false,
+    rush: { settings: DEFAULT_RUSH_SETTINGS, active: false, playing: false, speed: 300, clock: 0, end: 0,
+            orders: null, result: null, stats: null, finished: false },
     sample: [], playing: true, speed: 10, replayKey: 0, routeSlots: [], picked: 0, hud: emptyHud,
 
     init: data => {
@@ -265,7 +285,7 @@ export const useStore = create<State>()((set, get) => {
     loadLayout: assign => { if (get().data) load(assign, { mode: 'sandbox', boardOpen: false }); },
     setBoardOpen: boardOpen => get().openPanel(boardOpen ? 'board' : null),
     openPanel: panel => set(s => ({
-      boardOpen: panel === 'board', batchOpen: panel === 'batch', newItemOpen: panel === 'newItem',
+      boardOpen: panel === 'board', batchOpen: panel === 'batch', newItemOpen: panel === 'newItem', rushOpen: panel === 'rush',
       ai: { ...s.ai, open: panel === 'ai' },
     })),
 
@@ -282,6 +302,20 @@ export const useStore = create<State>()((set, get) => {
       get().init(plan.world);
       load(plan.options[option].assign, { mode: 'sandbox' });
     },
+    setRush: patch => set(s => ({ rush: { ...s.rush, ...patch } })),
+    setRushSettings: patch => set(s => ({ rush: { ...s.rush, settings: { ...s.rush.settings, ...patch } } })),
+    // Simulate the shift with the current layout, then replay it in 3D against the shift clock
+    startRush: () => {
+      const { data, assign, rush } = get();
+      if (!data) return;
+      const orders = rushOrders(data.orders.test, rush.settings.days).orders;
+      const opts = rushOptions(rush.settings);
+      const result = simulateRush(orders, assign, opts);
+      set({ rush: { ...rush, active: true, playing: true, finished: false, orders, result, stats: null,
+                    clock: opts.shiftStart, end: Math.max(result.lastDone, opts.cutoff) + 600 },
+            rushOpen: false, selected: null, preview: null });
+    },
+    stopRush: () => set(s => ({ rush: { ...s.rush, active: false, playing: false, finished: false } })),
     exitWhatIf: () => {
       const { realData } = get();
       if (!realData) return;
@@ -338,3 +372,4 @@ export const useStore = create<State>()((set, get) => {
     restart: () => set(s => ({ replayKey: s.replayKey + 1, playing: true })),
   };
 });
+

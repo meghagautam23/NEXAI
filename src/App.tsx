@@ -8,10 +8,12 @@ import { PlayCard } from './ui/PlayCard'
 import { ReplayBar } from './ui/ReplayBar'
 import { Scoreboard } from './ui/Scoreboard'
 import { TopBar } from './ui/TopBar'
+import { RushClock } from './ui/RushClock'
 
 function App() {
   const ready = useStore(s => s.data !== null)
-  const drawerOpen = useStore(s => s.ai.open || s.batchOpen || s.boardOpen || s.newItemOpen)
+  const rush = useStore(s => s.rush.active)
+  const drawerOpen = useStore(s => s.ai.open || s.batchOpen || s.boardOpen || s.newItemOpen || s.rushOpen)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -32,7 +34,8 @@ function App() {
         <>
           <TopBar />
           <PlayCard />
-          <ReplayBar />
+          {!rush && <ReplayBar />}
+          <RushClock />
           <Scoreboard />
           <Drawer />
           <Tooltip />

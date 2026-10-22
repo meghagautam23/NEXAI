@@ -5,12 +5,14 @@ import { useStore } from '../store';
 import { AffinityLines } from './AffinityLines';
 import { ZoneFloor } from './ZoneFloor';
 import { ItemIcons } from './ItemIcons';
+import { RushPickers } from './RushPickers';
 import { Dock, Floor } from './Warehouse';
 import { Picker } from './Picker';
 import { Racks } from './Racks';
 
 export function Scene() {
   const ready = useStore(s => s.data !== null);
+  const rush = useStore(s => s.rush.active);
   return (
     <Canvas dpr={[1, 1.5]} camera={{ position: [-1.5, 19, 21], fov: 45 }} gl={{ antialias: true }}>
       <color attach="background" args={['#eef1f5']} />
@@ -21,7 +23,8 @@ export function Scene() {
       <Racks />
       <ZoneFloor />
       {ready && <ItemIcons />}
-      {ready && <Picker />}
+      {ready && !rush && <Picker />}
+      {ready && rush && <RushPickers />}
       {ready && <AffinityLines />}
       <OrbitControls target={[-1.5, 0, -0.5]} enableDamping minDistance={8} maxDistance={55}
                      maxPolarAngle={1.35} minPolarAngle={0.15} />
