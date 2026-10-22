@@ -4,6 +4,7 @@ import { Scene } from './scene/Scene'
 import { useStore } from './store'
 import { Hud } from './ui/Hud'
 import { ResultCard, Toast, Tooltip } from './ui/Overlays'
+import { Leaderboard } from './ui/Leaderboard'
 import { Scoreboard } from './ui/Scoreboard'
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
           <Tooltip />
           <Toast />
           <ResultCard />
+          <Leaderboard />
         </>
       ) : <div className="loading">{error ?? 'Loading orders…'}</div>}
     </div>

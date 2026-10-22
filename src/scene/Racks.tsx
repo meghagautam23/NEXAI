@@ -11,6 +11,14 @@ const SLOTS = 100;
 const LOW = new Color('#c9d3df'), HIGH = new Color('#1f5fa8');
 const TO_PICK = new Color('#f28c28'), PICKED = new Color('#3fa34d');
 const SELECTED = new Color('#8b3fd9'), NO_TARGET = new Color('#8d949e'), WHITE = new Color('#ffffff');
+const COLD = new Color('#d7dbe0'), WARM = new Color('#ffd166'), HOT = new Color('#c8102e');
+
+// Heatmap: unvisited grey, then yellow -> red as visits approach the busiest bay
+function heat(c: Color, visits: number, max: number) {
+  if (!visits) return c.copy(COLD);
+  const f = max > 1 ? (visits - 1) / (max - 1) : 1;
+  return c.lerpColors(WARM, HOT, f);
+}
 
 export function Racks() {
   const mesh = useRef<InstancedMesh>(null);
@@ -20,6 +28,8 @@ export function Racks() {
   const picked = useStore(s => s.picked);
   const selected = useStore(s => s.selected);
   const hovered = useStore(s => s.hover?.slot ?? null);
+  const rackColor = useStore(s => s.rackColor);
+  const visits = useStore(s => s.visits);
 
   useLayoutEffect(() => {
     const m = mesh.current!, o = new Object3D();
@@ -39,8 +49,13 @@ export function Racks() {
     const m = mesh.current!;
     if (!products || assign.length !== products.length) return;
     const c = new Color(), last = products.length - 1;
-    assign.forEach((slot, p) => m.setColorAt(slot, c.lerpColors(HIGH, LOW, p / last)));
-    routeSlots.forEach((slot, i) => m.setColorAt(slot, i < picked ? PICKED : TO_PICK));
+    if (rackColor === 'visits') {
+      const max = Math.max(...visits);
+      for (let s = 0; s < SLOTS; s++) m.setColorAt(s, heat(c, visits[s], max));
+    } else {
+      assign.forEach((slot, p) => m.setColorAt(slot, c.lerpColors(HIGH, LOW, p / last)));
+      routeSlots.forEach((slot, i) => m.setColorAt(slot, i < picked ? PICKED : TO_PICK));
+    }
     if (selected !== null) {
       m.setColorAt(selected, SELECTED);
       for (let s = 0; s < SLOTS; s++) if (samePickPoint(selected, s)) m.setColorAt(s, NO_TARGET);
@@ -50,7 +65,7 @@ export function Racks() {
       m.setColorAt(hovered, c.lerp(WHITE, 0.35));
     }
     m.instanceColor!.needsUpdate = true;
-  }, [assign, products, routeSlots, picked, selected, hovered]);
+  }, [assign, products, routeSlots, picked, selected, hovered, rackColor, visits]);
 
   const { clickSlot, hoverSlot } = useStore.getState();
   const onMove = (e: ThreeEvent<PointerEvent>) => {

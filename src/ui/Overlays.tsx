@@ -36,8 +36,9 @@ export function ResultCard() {
 }
 
 function Result() {
-  const { yours, ref, history, reset } = useStore();
+  const { yours, ref, history, reset, saveResult, savedRound } = useStore();
   const [closed, setClosed] = useState(false);
+  const [name, setName] = useState('');
   if (closed || !yours || !ref) return null;
   const vsBase = yours.test.totalDist / ref.test.baseline.totalDist - 1;
   const vsOrig = yours.test.totalDist / ref.test.original.totalDist - 1;
@@ -51,6 +52,11 @@ function Result() {
         <div><span className="caption">vs Baseline</span><b className={`num ${won ? 'good' : 'bad'}`}>{fmtPct(vsBase)}</b></div>
         <div><span className="caption">vs Original</span><b className={`num ${vsOrig < 0 ? 'good' : 'bad'}`}>{fmtPct(vsOrig)}</b></div>
       </div>
+      <form className="row" onSubmit={e => { e.preventDefault(); saveResult(name); }}>
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name"
+               maxLength={24} disabled={savedRound} aria-label="Name for the leaderboard" />
+        <button type="submit" disabled={savedRound}>{savedRound ? 'Saved' : 'Save to leaderboard'}</button>
+      </form>
       <div className="row">
         <button className="primary" onClick={reset}>Play again</button>
         <button onClick={() => setClosed(true)}>View layout</button>

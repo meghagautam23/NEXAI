@@ -8,8 +8,10 @@ import { partnersOf, type Data } from './engine/data';
 import { baselineLayout, originalLayout, samePickPoint } from './engine/layouts';
 import { sampleOrders } from './engine/replay';
 import { makeEngine, scoreLayout, type Engine, type Stats } from './engine/sim';
+import { addEntry, readBoard, type Entry } from './leaderboard';
 
 export type Mode = 'challenge' | 'sandbox';
+export type RackColor = 'popularity' | 'visits';
 export const CHALLENGE_SWAPS = 10;
 export const SPEEDS = [1, 10, 50] as const;
 
@@ -34,6 +36,12 @@ type State = {
   preview: { slot: number; delta: number } | null; // train-week change if `selected` swaps with `slot`
   toast: { text: string; id: number } | null;
 
+  rackColor: RackColor;
+  visits: number[];            // picks per slot during the current replay (heatmap)
+  board: Entry[];              // leaderboard, this browser only
+  boardOpen: boolean;
+  savedRound: boolean;         // this Challenge result is already on the board
+
   sample: number[];
   playing: boolean;
   speed: number;
@@ -51,6 +59,12 @@ type State = {
   undo: () => void;
   submit: () => void;
   notify: (text: string) => void;
+  setRackColor: (c: RackColor) => void;
+  resetVisits: () => void;
+  recordPick: (slot: number) => void;
+  saveResult: (name: string) => void;
+  loadLayout: (assign: number[]) => void;
+  setBoardOpen: (open: boolean) => void;
   setPlaying: (playing: boolean) => void;
   setSpeed: (speed: number) => void;
   restart: () => void;
@@ -59,6 +73,7 @@ type State = {
 // Engines are mutable and hot, so they live outside React state
 let train: Engine | null = null, test: Engine | null = null;
 
+const noVisits = () => Array<number>(100).fill(0);
 const emptyHud: ReplayHud = { index: 0, orderId: '', lines: 0, dist: 0, time: 0, done: false };
 const startLayout = (data: Data, mode: Mode) =>
   mode === 'challenge' ? baselineLayout(data.products) : originalLayout(data.products);
@@ -73,7 +88,7 @@ export const useStore = create<State>()((set, get) => {
     set(s => ({
       assign: [...test!.assign], productAt: [...test!.productAt],
       yours: { train: train!.stats(), test: test!.stats() },
-      history: [], submitted: false, selected: null, preview: null,
+      history: [], submitted: false, savedRound: false, selected: null, preview: null,
       replayKey: s.replayKey + 1, playing: true, ...extra,
     }));
   };
@@ -92,6 +107,7 @@ export const useStore = create<State>()((set, get) => {
     data: null, partners: [], ref: null,
     mode: 'challenge', assign: [], productAt: [], yours: null, history: [], submitted: false,
     selected: null, hover: null, preview: null, toast: null,
+    rackColor: 'popularity', visits: noVisits(), board: readBoard(), boardOpen: false, savedRound: false,
     sample: [], playing: true, speed: 10, replayKey: 0, routeSlots: [], picked: 0, hud: emptyHud,
 
     init: data => {
@@ -149,6 +165,27 @@ export const useStore = create<State>()((set, get) => {
       set({ toast: { text, id } });
       setTimeout(() => { if (get().toast?.id === id) set({ toast: null }); }, 2200);
     },
+
+    setRackColor: rackColor => set({ rackColor }),
+    resetVisits: () => set({ visits: noVisits() }),
+    recordPick: slot => set(s => { const visits = [...s.visits]; visits[slot]++; return { visits }; }),
+
+    saveResult: name => {
+      const { submitted, savedRound, yours, ref, history, assign, notify } = get();
+      if (!submitted || savedRound || !yours || !ref) return;
+      const total = yours.test.totalDist;
+      const { board, saved } = addEntry({
+        id: `${Date.now()}`, name: name.trim().slice(0, 24) || 'Anonymous', total,
+        vsBaseline: total / ref.test.baseline.totalDist - 1, swaps: history.length,
+        at: new Date().toISOString(), assign: [...assign],
+      });
+      set({ board, savedRound: true, boardOpen: true });
+      if (!saved) notify('Leaderboard storage is unavailable in this browser; kept for this visit only.');
+    },
+
+    // Open a saved layout in Sandbox, where every score is shown live
+    loadLayout: assign => { if (get().data) load(assign, { mode: 'sandbox', boardOpen: false }); },
+    setBoardOpen: boardOpen => set({ boardOpen }),
 
     setPlaying: playing => set({ playing }),
     setSpeed: speed => set({ speed }),

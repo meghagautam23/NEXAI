@@ -1,8 +1,9 @@
 // ui/Hud.tsx — mode, swaps and replay controls (top left)
-import { CHALLENGE_SWAPS, SPEEDS, useStore, type Mode } from '../store';
+import { CHALLENGE_SWAPS, SPEEDS, useStore, type Mode, type RackColor } from '../store';
 import { fmtM, fmtPct, fmtTime } from './format';
 
 const MODES: [Mode, string][] = [['challenge', 'Challenge'], ['sandbox', 'Sandbox']];
+const COLORS: [RackColor, string][] = [['popularity', 'Popularity'], ['visits', 'Visit heatmap']];
 
 export function Hud() {
   const s = useStore();
@@ -73,12 +74,29 @@ export function Hud() {
         </div>
       </section>
 
-      <div className="legend">
-        <span><i style={{ background: 'linear-gradient(90deg,#c9d3df,#1f5fa8)' }} />picked less → more</span>
-        <span><i style={{ background: '#f28c28' }} />to pick</span>
-        <span><i style={{ background: '#3fa34d' }} />picked</span>
-        <span><i style={{ background: '#8b3fd9' }} />selected</span>
-      </div>
+      <section>
+        <div className="row">
+          <span className="caption">Racks</span>
+          <div className="seg">
+            {COLORS.map(([k, label]) => (
+              <button key={k} className={s.rackColor === k ? 'on' : ''} onClick={() => s.setRackColor(k)}>{label}</button>
+            ))}
+          </div>
+        </div>
+        <div className="legend">
+          {s.rackColor === 'popularity' ? <>
+            <span><i style={{ background: 'linear-gradient(90deg,#c9d3df,#1f5fa8)' }} />picked less → more</span>
+            <span><i style={{ background: '#f28c28' }} />to pick</span>
+            <span><i style={{ background: '#3fa34d' }} />picked</span>
+          </> : <>
+            <span><i style={{ background: '#d7dbe0' }} />not visited</span>
+            <span><i style={{ background: 'linear-gradient(90deg,#ffd166,#c8102e)' }} />visits in this replay: few → most</span>
+          </>}
+          <span><i style={{ background: '#8b3fd9' }} />selected</span>
+        </div>
+      </section>
+
+      <button onClick={() => s.setBoardOpen(!s.boardOpen)}>Leaderboard ({s.board.length})</button>
     </div>
   );
 }

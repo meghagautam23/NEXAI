@@ -155,3 +155,15 @@ uses.
 The scoreboard lists Original, Baseline and Yours on all 735 test-week orders: total distance, mean,
 median and p90 distance per order, average time per order and change vs Original. Game rules are tested
 in `src/store.test.ts`.
+
+### Heatmap and leaderboard
+
+- **Visit heatmap** (Racks → Visit heatmap): racks are coloured by how many times the picker has
+  picked from them in the current replay, grey (never) through yellow to red (busiest). It resets when the
+  replay restarts or the layout changes, so you can watch traffic build up order by order, and compare
+  how concentrated it is under different layouts.
+- **Leaderboard:** after submitting a Challenge, enter a name and save. Entries are ranked by test-week
+  walking distance and keep the layout, so **Load** reopens it in Sandbox. They are stored in
+  `localStorage`, so they belong to **this browser only** (no server); if storage is blocked the game
+  still works and keeps the result for the visit. Logic and storage failures are tested in
+  `src/leaderboard.test.ts`.

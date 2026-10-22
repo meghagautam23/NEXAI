@@ -103,3 +103,37 @@ describe('Sandbox mode', () => {
     expect(st().history).toEqual([])
   })
 })
+
+describe('Heatmap and leaderboard (Phase 6)', () => {
+  it('counts picks per slot and clears them on reset', () => {
+    st().recordPick(7); st().recordPick(7); st().recordPick(42)
+    expect(st().visits[7]).toBe(2)
+    expect(st().visits[42]).toBe(1)
+    st().resetVisits()
+    expect(st().visits.every(v => v === 0)).toBe(true)
+  })
+
+  it('saves a Challenge result once, only after submitting', () => {
+    useStore.setState({ board: [] })
+    swap(2, 77)
+    st().saveResult('Megha')
+    expect(st().board).toHaveLength(0)  // not submitted yet
+    st().submit()
+    st().saveResult('  Megha  ')
+    st().saveResult('again')
+    expect(st().board).toHaveLength(1)
+    expect(st().board[0]).toMatchObject({ name: 'Megha', swaps: 1, total: st().yours!.test.totalDist })
+    expect(st().board[0].assign).toEqual(st().assign)
+    expect(st().boardOpen).toBe(true)
+  })
+
+  it('loads a saved layout into Sandbox with live scores', () => {
+    swap(2, 77)
+    const saved = [...st().assign]
+    st().reset()
+    st().loadLayout(saved)
+    expect(st().mode).toBe('sandbox')
+    expect(st().assign).toEqual(saved)
+    expect(st().yours!.test.totalDist).toBeCloseTo(scoreLayout(data.orders.test, saved).totalDist, 6)
+  })
+})

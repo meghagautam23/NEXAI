@@ -32,13 +32,15 @@ export function Picker() {
       setRoute(r.tl.waypoints.map(w => toWorld(w.x, w.y, 0.05)));
       useStore.setState({ routeSlots: r.tl.slots, picked: 0 });
     };
-    if (r.key !== s.replayKey) { r.key = s.replayKey; r.doneDist = 0; r.doneTime = 0; start(0); }
+    if (r.key !== s.replayKey) { r.key = s.replayKey; r.doneDist = 0; r.doneTime = 0; s.resetVisits(); start(0); }
     const tl = r.tl!;
     const done = r.idx >= s.sample.length - 1 && r.t >= tl.time;
 
     if (s.playing && !done) {
       r.t += Math.min(delta, 0.1) * s.speed;
       if (r.t >= tl.time && r.idx < s.sample.length - 1) {
+        // at high speed one frame can finish the order: count its last picks before moving on
+        for (let k = Math.max(0, r.picked); k < tl.slots.length; k++) s.recordPick(tl.slots[k]);
         r.doneDist += tl.dist; r.doneTime += tl.time;
         start(r.idx + 1);
       }
@@ -49,7 +51,10 @@ export function Picker() {
     body.current.position.set(x, p.picking ? 0.08 * Math.abs(Math.sin(r.t * 2)) : 0, z);
     if (p.heading !== null) body.current.rotation.y = Math.atan2(Math.sin(p.heading), -Math.cos(p.heading));
 
-    if (p.picked !== r.picked) { r.picked = p.picked; useStore.setState({ picked: p.picked }); }
+    if (p.picked !== r.picked) {
+      for (let k = Math.max(0, r.picked); k < p.picked; k++) s.recordPick(r.tl!.slots[k]); // heatmap
+      r.picked = p.picked; useStore.setState({ picked: p.picked });
+    }
     r.sinceHud += delta;
     if (r.sinceHud >= HUD_EVERY || done) {
       r.sinceHud = 0;
