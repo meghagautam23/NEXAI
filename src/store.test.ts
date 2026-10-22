@@ -179,3 +179,21 @@ describe('Classification rules', () => {
     useStore.setState({ abcZones: false })
   })
 })
+
+describe('AI Suggest in the store', () => {
+  it('turns an optimizer result into scored, explained moves and a scoreboard row', async () => {
+    const { optimize } = await import('./engine/optimizer')
+    const { partnersOf } = await import('./engine/data')
+    const r = optimize({ products: data.products, orders: data.orders.train, partners: partnersOf(data.affinity, 5),
+      start: baselineLayout(data.products), rules: { abcZones: false }, iterations: 3000, seed: 5 })
+    st().finishAI(r, 'balanced', false)
+    const res = st().ai.result!
+    expect(st().ai.status).toBe('done')
+    expect(res.test.totalDist).toBeCloseTo(scoreLayout(data.orders.test, r.assign).totalDist, 6)
+    expect(res.moves.length).toBeGreaterThan(0)
+    expect(res.testDays).toBe(8)
+    st().setAbcZones(true)                        // a rule change makes the old result stale
+    expect(st().ai.result).toBeNull()
+    useStore.setState({ abcZones: false })
+  })
+})

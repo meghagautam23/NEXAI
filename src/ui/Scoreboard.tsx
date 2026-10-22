@@ -22,7 +22,7 @@ function Row({ name, s, original, note }: { name: string; s: Stats | null; origi
 }
 
 export function Scoreboard() {
-  const { ref, yours, mode, submitted, data } = useStore();
+  const { ref, yours, mode, submitted, data, ai, setAi } = useStore();
   if (!ref || !yours || !data) return null;
   const hidden = mode === 'challenge' && !submitted;
   return (
@@ -38,6 +38,10 @@ export function Scoreboard() {
           <Row name="Baseline" s={ref.test.baseline} original={ref.test.original} />
           <Row name="Yours" s={hidden ? null : yours.test} original={ref.test.original}
                note="Hidden until you submit: the test week is unseen" />
+          {ai.result
+            ? <Row name="AI Suggest" s={ai.result.test} original={ref.test.original} />
+            : <tr><th>AI Suggest</th><td colSpan={6}>
+                <button className="link" onClick={() => setAi({ open: true })}>Run AI Suggest</button></td></tr>}
         </tbody>
       </table>
       <div className="caption">Distance per order except Total. Avg time = walking at 1 m/s + 10 s per line.</div>

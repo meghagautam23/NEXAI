@@ -197,3 +197,30 @@ optimizer:
 
 A refused swap shows the reason and does not use a swap. Rack colours can show each classification,
 with the ABC zones or the heavy zone marked on the floor.
+
+## AI Suggest
+
+`src/engine/optimizer.ts`, run in a Web Worker (`optimizer.worker.ts`) so the scene never freezes.
+
+- **Search:** simulated annealing over product swaps for 5 seconds (about 45,000 swaps), starting from the
+  Baseline. 70% of proposals move a product next to one of its top-5 bought-together partners; the rest
+  are random. Temperature falls from 25 m to 0.3 m. Every proposal is checked against the placement
+  rules (heavy items front; ABC zones if on).
+- **Hold-out:** it scores layouts on the **train weeks only** (1–21 Nov). The result is then scored on the
+  **test week** (22–30 Nov), which it never saw. That is the number on the scoreboard.
+- **Re-slotting aware:** each product moved costs a set number of train-week metres in the objective, so
+  the search prefers a compact set of moves. Plans: *Max saving* (0 m per move), *Balanced* (100 m,
+  default), *Fewer moves* (200 m). Afterwards, any move that can be undone without lengthening the walk is
+  undone.
+- **Explained moves:** for every moved product, the walking that undoing that move alone would add, and the
+  bought-together partner it was moved towards ("Now 1.2 m from Hot Water Bottle I Am So Poorly (was
+  16.6 m): bought together in 53 orders").
+- **Business case:** test-week saving ÷ 8 picking days, at 1 m/s, gives hours per day; × picking days per
+  year × picker cost gives £ per year; moved products × minutes per move gives the re-slotting effort and
+  payback period. The assumptions (default £15/hour, 10 minutes per move, 250 days a year) are editable in
+  the card. It covers walking time in the 100-product zone modelled here, not the whole catalogue.
+
+Typical results over seeds (test week vs Baseline): *Max saving* −12% moving ~92 products; *Balanced*
+−11% to −14% moving ~63; *Fewer moves* −6% to −9% moving ~30–43. One browser run (Balanced): **−11.6%**,
+5,748 m less over 8 picking days, 62 moves, about 12 minutes of walking saved a day, 10.3 hours of
+re-slotting, paid back in 52 picking days. Tested in `src/engine/optimizer.test.ts`.

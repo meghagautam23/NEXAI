@@ -10,8 +10,25 @@ import { sampleOrders } from './engine/replay';
 import { makeEngine, scoreLayout, type Engine, type Stats } from './engine/sim';
 import { addEntry, readBoard, type Entry } from './leaderboard';
 import { swapProblem } from './engine/rules';
+import { DEFAULT_ASSUMPTIONS, explainMoves, pickingDays, type Assumptions, type Move } from './engine/insights';
+import { optimize, type OptimizeResult } from './engine/optimizer';
+import type { WorkerMessage, WorkerRequest } from './engine/optimizer.worker';
 
 export type Mode = 'challenge' | 'sandbox';
+// AI Suggest plans: metres of train-week walking charged per product moved (re-slotting effort)
+export type AiPlan = 'max' | 'balanced' | 'few';
+export const AI_PLANS: Record<AiPlan, { label: string; penalty: number }> = {
+  max: { label: 'Max saving', penalty: 0 },
+  balanced: { label: 'Balanced', penalty: 100 },
+  few: { label: 'Fewer moves', penalty: 200 },
+};
+export const AI_BUDGET_MS = 5000;
+export type AiResult = {
+  assign: number[]; train: Stats; test: Stats; moves: Move[]; iterations: number;
+  plan: AiPlan; abcZones: boolean; trainDays: number; testDays: number;
+};
+export type AiState = { status: 'idle' | 'running' | 'done'; plan: AiPlan; open: boolean; progress: number; trainGain: number; result: AiResult | null };
+
 export type RackColor = 'popularity' | 'visits' | 'velocity' | 'cost' | 'weight';
 export const CHALLENGE_SWAPS = 10;
 export const SPEEDS = [1, 10, 50] as const;
@@ -69,6 +86,13 @@ type State = {
   loadLayout: (assign: number[]) => void;
   setBoardOpen: (open: boolean) => void;
   setAbcZones: (on: boolean) => void;
+
+  ai: AiState;
+  assumptions: Assumptions;
+  runAI: () => void;
+  finishAI: (r: OptimizeResult, plan: AiPlan, abcZones: boolean) => void;
+  setAi: (patch: Partial<AiState>) => void;
+  setAssumptions: (patch: Partial<Assumptions>) => void;
   setPlaying: (playing: boolean) => void;
   setSpeed: (speed: number) => void;
   restart: () => void;
@@ -76,6 +100,9 @@ type State = {
 
 // Engines are mutable and hot, so they live outside React state
 let train: Engine | null = null, test: Engine | null = null;
+let worker: Worker | null = null;
+// The optimizer draws on the top 5 bought-together partners (the hints show 3)
+const partners5 = (data: Data) => partnersOf(data.affinity, 5);
 
 // Heavy items always stay in the front bays; ABC zones apply only in Challenge when switched on
 const rulesFor = (s: Pick<State, 'mode' | 'abcZones'>) => ({ abcZones: s.mode === 'challenge' && s.abcZones });
@@ -114,6 +141,8 @@ export const useStore = create<State>()((set, get) => {
     data: null, partners: [], ref: null,
     mode: 'challenge', assign: [], productAt: [], yours: null, history: [], submitted: false, abcZones: false,
     selected: null, hover: null, preview: null, blocked: null, toast: null,
+    ai: { status: 'idle', plan: 'balanced', open: false, progress: 0, trainGain: 0, result: null },
+    assumptions: DEFAULT_ASSUMPTIONS,
     rackColor: 'popularity', visits: noVisits(), board: readBoard(), boardOpen: false, savedRound: false,
     sample: [], playing: true, speed: 10, replayKey: 0, routeSlots: [], picked: 0, hud: emptyHud,
 
@@ -201,7 +230,46 @@ export const useStore = create<State>()((set, get) => {
     loadLayout: assign => { if (get().data) load(assign, { mode: 'sandbox', boardOpen: false }); },
     setBoardOpen: boardOpen => set({ boardOpen }),
     // Changing the rules starts a fresh round, so a result is always played under one rule set
-    setAbcZones: abcZones => { set({ abcZones }); get().reset(); },
+    setAbcZones: abcZones => { set(s => ({ abcZones, ai: { ...s.ai, result: null, status: 'idle' } })); get().reset(); },
+
+    // AI Suggest: starts from the Baseline, learns on the train weeks only, obeys the current rules.
+    // Runs in a Web Worker in the browser; synchronously where workers do not exist (tests).
+    runAI: () => {
+      const { data, ai } = get();
+      if (!data || ai.status === 'running') return;
+      const abcZones = rulesFor(get()).abcZones, plan = ai.plan;
+      const request: WorkerRequest = {
+        products: data.products, orders: data.orders.train, partners: partners5(data), start: baselineLayout(data.products),
+        rules: { abcZones }, budgetMs: AI_BUDGET_MS, movePenalty: AI_PLANS[plan].penalty, seed: Date.now() % 100000,
+      };
+      set({ ai: { ...ai, status: 'running', open: true, progress: 0, trainGain: 0 } });
+      if (typeof Worker === 'undefined') return get().finishAI(optimize(request), plan, abcZones);
+      worker?.terminate();
+      worker = new Worker(new URL('./engine/optimizer.worker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
+        const m = e.data;
+        if (m.type === 'progress')
+          set(s => ({ ai: { ...s.ai, progress: m.progress.elapsedMs / AI_BUDGET_MS, trainGain: m.progress.best / m.progress.start - 1 } }));
+        else { worker?.terminate(); worker = null; get().finishAI(m.result, plan, abcZones); }
+      };
+      worker.postMessage(request);
+    },
+
+    finishAI: (r, plan, abcZones) => {
+      const { data } = get();
+      if (!data) return;
+      const eng = makeEngine(data.orders.train, r.assign);
+      const result: AiResult = {
+        assign: r.assign, train: eng.stats(), test: scoreLayout(data.orders.test, r.assign),
+        moves: explainMoves(data.products, data.affinity, eng, baselineLayout(data.products)),
+        iterations: r.iterations, plan, abcZones,
+        trainDays: pickingDays(data.orders.train), testDays: pickingDays(data.orders.test),
+      };
+      set(s => ({ ai: { ...s.ai, status: 'done', progress: 1, result } }));
+    },
+
+    setAi: patch => set(s => ({ ai: { ...s.ai, ...patch } })),
+    setAssumptions: patch => set(s => ({ assumptions: { ...s.assumptions, ...patch } })),
 
     setPlaying: playing => set({ playing }),
     setSpeed: speed => set({ speed }),

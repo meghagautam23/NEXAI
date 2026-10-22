@@ -115,7 +115,10 @@ export function Hud() {
         </div>
       </section>
 
-      <button onClick={() => s.setBoardOpen(!s.boardOpen)}>Leaderboard ({s.board.length})</button>
+      <div className="row">
+        <button className="primary grow" onClick={() => s.setAi({ open: !s.ai.open })}>AI Suggest</button>
+        <button className="grow" onClick={() => s.setBoardOpen(!s.boardOpen)}>Leaderboard ({s.board.length})</button>
+      </div>
     </div>
   );
 }
