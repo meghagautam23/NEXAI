@@ -1,63 +1,157 @@
-// store.ts — app state shared by the 3D scene and the HUD (zustand)
+// store.ts — game state shared by the 3D scene and the UI (zustand)
+//
+// The player plans on history and is judged on the future, exactly like the optimizer:
+// swap previews use the train weeks (1–21 Nov); the score is the unseen test week (22–30 Nov).
+// In Challenge mode the test-week result stays hidden until the player submits.
 import { create } from 'zustand';
-import type { Data } from './engine/data';
-import { baselineLayout, originalLayout } from './engine/layouts';
+import { partnersOf, type Data } from './engine/data';
+import { baselineLayout, originalLayout, samePickPoint } from './engine/layouts';
 import { sampleOrders } from './engine/replay';
-import { scoreLayout, type Stats } from './engine/sim';
+import { makeEngine, scoreLayout, type Engine, type Stats } from './engine/sim';
 
-export type LayoutName = 'original' | 'baseline';
+export type Mode = 'challenge' | 'sandbox';
+export const CHALLENGE_SWAPS = 10;
 export const SPEEDS = [1, 10, 50] as const;
 
 // Live replay readout, pushed by the scene a few times per second
 export type ReplayHud = { index: number; orderId: string; lines: number; dist: number; time: number; done: boolean };
+type Ref = { original: Stats; baseline: Stats };
 
 type State = {
   data: Data | null;
-  layout: LayoutName;
-  assign: number[];
-  testScore: Stats | null;    // all test-week orders under the current layout
-  sample: number[];           // indices into data.orders.test replayed on screen
+  partners: number[][];        // top-3 bought-together partners per product
+  ref: { train: Ref; test: Ref } | null;
+
+  mode: Mode;
+  assign: number[];            // the player's layout, productId -> slotId
+  productAt: number[];         // slotId -> productId
+  yours: { train: Stats; test: Stats } | null;
+  history: [number, number][]; // swapped slot pairs, for undo
+  submitted: boolean;          // Challenge: test-week result revealed
+
+  selected: number | null;     // slot
+  hover: { slot: number; x: number; y: number } | null;
+  preview: { slot: number; delta: number } | null; // train-week change if `selected` swaps with `slot`
+  toast: { text: string; id: number } | null;
+
+  sample: number[];
   playing: boolean;
   speed: number;
-  replayKey: number;          // bump to restart the replay
-  routeSlots: number[];       // slots of the order being walked, in visiting order
-  picked: number;             // how many of routeSlots are already picked
+  replayKey: number;
+  routeSlots: number[];
+  picked: number;
   hud: ReplayHud;
+
   init: (data: Data) => void;
-  setLayout: (layout: LayoutName) => void;
+  setMode: (mode: Mode) => void;
+  reset: () => void;
+  loadBaseline: () => void;
+  clickSlot: (slot: number) => void;
+  hoverSlot: (slot: number | null, x?: number, y?: number) => void;
+  undo: () => void;
+  submit: () => void;
+  notify: (text: string) => void;
   setPlaying: (playing: boolean) => void;
   setSpeed: (speed: number) => void;
   restart: () => void;
 };
 
+// Engines are mutable and hot, so they live outside React state
+let train: Engine | null = null, test: Engine | null = null;
+
 const emptyHud: ReplayHud = { index: 0, orderId: '', lines: 0, dist: 0, time: 0, done: false };
+const startLayout = (data: Data, mode: Mode) =>
+  mode === 'challenge' ? baselineLayout(data.products) : originalLayout(data.products);
 
-const layoutOf = (data: Data, layout: LayoutName) =>
-  layout === 'baseline' ? baselineLayout(data.products) : originalLayout(data.products);
-
-export const useStore = create<State>()((set, get) => ({
-  data: null,
-  layout: 'baseline',
-  assign: [],
-  testScore: null,
-  sample: [],
-  playing: true,
-  speed: 10,
-  replayKey: 0,
-  routeSlots: [],
-  picked: 0,
-  hud: emptyHud,
-  init: data => {
-    const assign = layoutOf(data, get().layout);
-    set({ data, assign, testScore: scoreLayout(data.orders.test, assign), sample: sampleOrders(data.orders.test) });
-  },
-  setLayout: layout => {
-    const { data, replayKey } = get();
+export const useStore = create<State>()((set, get) => {
+  // Rebuild both engines from a layout and publish everything derived from them
+  const load = (assign: number[], extra: Partial<State> = {}) => {
+    const { data } = get();
     if (!data) return;
-    const assign = layoutOf(data, layout);
-    set({ layout, assign, testScore: scoreLayout(data.orders.test, assign), replayKey: replayKey + 1, playing: true });
-  },
-  setPlaying: playing => set({ playing }),
-  setSpeed: speed => set({ speed }),
-  restart: () => set(s => ({ replayKey: s.replayKey + 1, playing: true })),
-}));
+    train = makeEngine(data.orders.train, assign);
+    test = makeEngine(data.orders.test, assign);
+    set(s => ({
+      assign: [...test!.assign], productAt: [...test!.productAt],
+      yours: { train: train!.stats(), test: test!.stats() },
+      history: [], submitted: false, selected: null, preview: null,
+      replayKey: s.replayKey + 1, playing: true, ...extra,
+    }));
+  };
+
+  const swapSlots = (a: number, b: number) => {
+    const pa = test!.productAt[a], pb = test!.productAt[b];
+    train!.swap(pa, pb); test!.swap(pa, pb);
+    set(s => ({
+      assign: [...test!.assign], productAt: [...test!.productAt],
+      yours: { train: train!.stats(), test: test!.stats() },
+      selected: null, preview: null, replayKey: s.replayKey + 1,
+    }));
+  };
+
+  return {
+    data: null, partners: [], ref: null,
+    mode: 'challenge', assign: [], productAt: [], yours: null, history: [], submitted: false,
+    selected: null, hover: null, preview: null, toast: null,
+    sample: [], playing: true, speed: 10, replayKey: 0, routeSlots: [], picked: 0, hud: emptyHud,
+
+    init: data => {
+      const o = originalLayout(data.products), b = baselineLayout(data.products);
+      const ref = {
+        train: { original: scoreLayout(data.orders.train, o), baseline: scoreLayout(data.orders.train, b) },
+        test: { original: scoreLayout(data.orders.test, o), baseline: scoreLayout(data.orders.test, b) },
+      };
+      set({ data, ref, partners: partnersOf(data.affinity, 3), sample: sampleOrders(data.orders.test) });
+      load(startLayout(data, get().mode));
+    },
+
+    setMode: mode => { const { data } = get(); if (data) load(startLayout(data, mode), { mode }); },
+    reset: () => { const { data, mode } = get(); if (data) load(startLayout(data, mode)); },
+    loadBaseline: () => { const { data } = get(); if (data) load(baselineLayout(data.products)); },
+
+    clickSlot: slot => {
+      const { selected, submitted, mode, history, notify } = get();
+      if (!test) return;
+      if (submitted) return notify('Challenge submitted. Press Play again for a new round.');
+      if (selected === null) return set({ selected: slot, preview: null });
+      if (selected === slot) return set({ selected: null, preview: null });
+      if (samePickPoint(selected, slot)) return notify('No change: same pick point');
+      if (mode === 'challenge' && history.length >= CHALLENGE_SWAPS)
+        return notify('No swaps left. Submit your layout or undo a swap.');
+      swapSlots(selected, slot);
+      set({ history: [...history, [selected, slot]] });
+    },
+
+    hoverSlot: (slot, x = 0, y = 0) => {
+      const { selected, hover, preview } = get();
+      if (slot === null) { if (hover || preview) set({ hover: null, preview: null }); return; }
+      const next: Partial<State> = { hover: { slot, x, y } };
+      if (selected !== null && slot !== selected && !samePickPoint(selected, slot) && train) {
+        if (preview?.slot !== slot) {
+          const delta = train.swapDelta(train.productAt[selected], train.productAt[slot]).delta;
+          next.preview = { slot, delta };
+        }
+      } else if (preview) next.preview = null;
+      set(next);
+    },
+
+    undo: () => {
+      const { history, submitted } = get();
+      if (!history.length || submitted) return;
+      const [a, b] = history[history.length - 1];
+      swapSlots(a, b);
+      set({ history: history.slice(0, -1) });
+    },
+
+    submit: () => { if (get().history.length) set({ submitted: true, selected: null, preview: null }); },
+
+    notify: text => {
+      const id = Date.now();
+      set({ toast: { text, id } });
+      setTimeout(() => { if (get().toast?.id === id) set({ toast: null }); }, 2200);
+    },
+
+    setPlaying: playing => set({ playing }),
+    setSpeed: speed => set({ speed }),
+    restart: () => set(s => ({ replayKey: s.replayKey + 1, playing: true })),
+  };
+});

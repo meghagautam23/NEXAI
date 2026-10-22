@@ -3,6 +3,8 @@ import { loadData } from './engine/data'
 import { Scene } from './scene/Scene'
 import { useStore } from './store'
 import { Hud } from './ui/Hud'
+import { ResultCard, Toast, Tooltip } from './ui/Overlays'
+import { Scoreboard } from './ui/Scoreboard'
 
 function App() {
   const ready = useStore(s => s.data !== null)
@@ -10,12 +12,26 @@ function App() {
 
   useEffect(() => {
     loadData().then(useStore.getState().init).catch(e => setError(String(e)))
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') useStore.setState({ selected: null, preview: null })
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') useStore.getState().undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   return (
     <div className="app">
       <Scene />
-      {ready ? <Hud /> : <div className="loading">{error ?? 'Loading orders…'}</div>}
+      {ready ? (
+        <>
+          <Hud />
+          <Scoreboard />
+          <Tooltip />
+          <Toast />
+          <ResultCard />
+        </>
+      ) : <div className="loading">{error ?? 'Loading orders…'}</div>}
     </div>
   )
 }

@@ -130,3 +130,28 @@ React Three Fiber (`src/scene/`), with a small HUD (`src/ui/Hud.tsx`) and shared
 - **Replay:** 25 evenly spaced sample orders from the test week, at 1×, 10× or 50×. The HUD labels the
   replay sample and the score (all test-week orders) separately.
 - **Performance:** no shadows, pixel ratio capped at 1.5, labels painted onto textures (no font download).
+
+## Game
+
+Click a rack bay to select it (purple), then click another to swap their products. While a bay is
+selected:
+
+- purple arcs link it to the three products most often bought together with it (train weeks);
+- hovering another bay previews the change in walking distance over the train weeks;
+- the bay across the aisle is greyed out: it shares the pick point, so swapping with it changes nothing
+  ("No change: same pick point", no swap used).
+
+A click that ends a camera drag never counts as a selection. **Esc** deselects, **Ctrl/⌘+Z** undoes a swap.
+
+**Planning on the past, scored on the future.** Swap previews and the "Past 3 weeks vs Baseline" figure
+use the train weeks (1–21 Nov). The score is the test week (22–30 Nov), the same hold-out the optimizer
+uses.
+
+| Mode | Starts from | Swaps | Test-week score |
+|---|---|---|---|
+| **Challenge** (default) | Baseline | 10, undo refunds one | Hidden until you **Submit**; then win if you beat the Baseline |
+| **Sandbox** | Original | Unlimited; **Load Baseline** available | Shown live |
+
+The scoreboard lists Original, Baseline and Yours on all 735 test-week orders: total distance, mean,
+median and p90 distance per order, average time per order and change vs Original. Game rules are tested
+in `src/store.test.ts`.
