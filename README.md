@@ -116,3 +116,17 @@ the slots nearest the dock, ties broken by slot id and product id.
 | Baseline | Test (735 orders) | 49,414 m (−4.7%) | 67.2 m | 64.2 m | 113.8 m | 140.7 s |
 | Original | Train (1,617 orders) | 113,270 m | 70.0 m | 70.0 m | 109.4 m | 141.8 s |
 | Baseline | Train (1,617 orders) | 109,772 m (−3.1%) | 67.9 m | 68.4 m | 111.4 m | 139.6 s |
+
+## 3D scene
+
+React Three Fiber (`src/scene/`), with a small HUD (`src/ui/Hud.tsx`) and shared state in zustand (`src/store.ts`).
+
+- **Racks:** the 100 bays are one `InstancedMesh` (one draw call). Shade shows how often the product in a
+  bay was picked in the train weeks (darker blue = more); orange bays are still to pick in the current
+  order, green ones are picked.
+- **Picker:** a capsule with a head, walking at 1 m/s of simulated time and pausing 10 s at each pick.
+  Its path comes from `src/engine/replay.ts`, which builds the walk only from `leg()` waypoints, so the
+  animated distance equals the scored distance (tested). The current order's route is drawn as a dashed line.
+- **Replay:** 25 evenly spaced sample orders from the test week, at 1×, 10× or 50×. The HUD labels the
+  replay sample and the score (all test-week orders) separately.
+- **Performance:** no shadows, pixel ratio capped at 1.5, labels painted onto textures (no font download).
