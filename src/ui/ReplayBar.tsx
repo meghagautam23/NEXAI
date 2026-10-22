@@ -7,12 +7,20 @@ import { BULK_FLOOR, COST, FL, VELOCITY } from './palette';
 export function ReplayBar() {
   const s = useStore(useShallow(s => ({
     playing: s.playing, setPlaying: s.setPlaying, restart: s.restart, speed: s.speed, setSpeed: s.setSpeed,
-    hud: s.hud, batches: s.replayBatches, cart: s.batch.size,
+    hud: s.hud, batches: s.replayBatches, cart: s.batch.size, focus: s.focus, setFocus: s.setFocus,
   })));
   const { hud } = s;
   return (
     <div className="bottom-left">
-      <Legend />
+      <div className="legend-row">
+        <div className="seg small camera" role="group" aria-label="Camera">
+          <button className={s.focus === null ? 'on' : ''} onClick={() => s.setFocus(null)} aria-pressed={s.focus === null}>All aisles</button>
+          {[0, 1, 2, 3, 4].map(a => (
+            <button key={a} className={s.focus === a ? 'on' : ''} onClick={() => s.setFocus(a)} aria-pressed={s.focus === a}>{a + 1}</button>
+          ))}
+        </div>
+        <Legend />
+      </div>
       <div className="card replay">
         <button className="icon" onClick={() => s.setPlaying(!s.playing)} aria-label={s.playing ? 'Pause' : 'Play'}>
           {s.playing && !hud.done ? '❚❚' : '▶'}

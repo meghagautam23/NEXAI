@@ -157,6 +157,19 @@ React Three Fiber (`src/scene/`), with a small HUD (`src/ui/Hud.tsx`) and shared
   animated distance equals the scored distance (tested). The current order's route is drawn as a dashed line.
 - **Replay:** 25 evenly spaced sample orders from the test week, at 1×, 10× or 50×. The HUD labels the
   replay sample and the score (all test-week orders) separately.
+- **Home screen and Order data page:** the app opens on a start screen (Order data · Slotting challenge ·
+  AI, batching and new items · Peak-day rush) with the headline results. The Order data page shows the
+  pre-processing output: facts, every product with its classes, bought-together pairs, how the data was
+  prepared, and photo credits.
+- **Photo cards:** a card stands above every rack with a product photo, frequency class, FL level, family
+  symbol and short name; clicking a card is the same as clicking its shelf. The dataset has no images, so each
+  product is matched by name to one of 41 product types (`src/ui/productImages.ts`), each with one openly
+  licensed photo from Wikimedia Commons (CC0, CC BY or CC BY-SA; credits in `public/products/credits.json`
+  and on the Order data page). Photos show the type of item, not the exact product. **Shelf labels** in the
+  top bar switches between photo cards, family symbols and none.
+- **Aisle camera:** **All aisles / 1–5** glides the camera to the whole floor or one aisle.
+- The home screen, photo cards, data page, aisle camera and data-driven FL levels follow Jayesh Pani's version
+  of this project.
 - **Symbols:** every bay shows its product's family on top (`src/engine/categories.ts`: 17 families from
   the descriptions, e.g. 👜 bags ×20, 🎄 Christmas decorations ×13, 🧁 baking ×10, ♨️ hot water bottles ×8),
   so you can see at a glance which kinds of products sit together. They move with their products when
@@ -337,7 +350,7 @@ Yours, AI Suggest) under each policy. Sorting time at the dock is not included. 
 
 ## Testing and CI
 
-- **82 TypeScript tests** (Vitest): geometry never cuts through racks; the animation walks exactly the
+- **84 TypeScript tests** (Vitest): geometry never cuts through racks; the animation walks exactly the
   scored distance; incremental swap scoring equals a full rescore; layouts obey the rules; game rules
   (swaps, limits, undo, submit, zones); leaderboard storage failures; optimizer rules, determinism and
   hold-out; move explanations; business-case maths; batching limits and savings.

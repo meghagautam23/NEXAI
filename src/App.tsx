@@ -8,11 +8,14 @@ import { PlayCard } from './ui/PlayCard'
 import { ReplayBar } from './ui/ReplayBar'
 import { Scoreboard } from './ui/Scoreboard'
 import { TopBar } from './ui/TopBar'
+import { Home } from './ui/Home'
+import { DataPage } from './ui/DataPage'
 import { RushClock } from './ui/RushClock'
 
 function App() {
   const ready = useStore(s => s.data !== null)
   const rush = useStore(s => s.rush.active)
+  const screen = useStore(s => s.screen)
   const drawerOpen = useStore(s => s.ai.open || s.batchOpen || s.boardOpen || s.newItemOpen || s.rushOpen)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,6 +29,9 @@ function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  if (screen === 'home') return error ? <div className="loading">{error}</div> : <Home />
+  if (screen === 'data') return <DataPage />
 
   return (
     <div className={`app${drawerOpen ? ' drawer-open' : ''}`}>

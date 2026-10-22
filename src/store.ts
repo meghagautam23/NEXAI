@@ -44,6 +44,9 @@ export function starsFor(vsBaseline: number, beatAi: boolean): number {
   return STAR_STEPS.filter(t => vsBaseline < t).length;
 }
 
+export type ShelfLabels = 'photos' | 'symbols' | 'off';
+export type Screen = 'home' | 'data' | 'twin';
+
 export type RackColor = 'popularity' | 'visits' | 'velocity' | 'cost' | 'weight';
 export const CHALLENGE_SWAPS = 10;
 export const SPEEDS = [1, 10, 50] as const;
@@ -86,7 +89,9 @@ type State = {
   toast: { text: string; id: number } | null;
 
   rackColor: RackColor;
-  showIcons: boolean;          // product-family symbols on the racks
+  screen: Screen;
+  focus: number | null;        // camera: aisle index, or null for the whole floor
+  labels: ShelfLabels;         // what stands on the racks: product photo cards, family symbols, or nothing
   visits: number[];            // picks per slot during the current replay (heatmap)
   board: Entry[];              // leaderboard, this browser only
   boardOpen: boolean;
@@ -118,7 +123,9 @@ type State = {
   submit: () => void;
   notify: (text: string) => void;
   setRackColor: (c: RackColor) => void;
-  setShowIcons: (on: boolean) => void;
+  setLabels: (labels: ShelfLabels) => void;
+  setScreen: (screen: Screen) => void;
+  setFocus: (aisle: number | null) => void;
   resetVisits: () => void;
   recordPick: (slot: number) => void;
   saveResult: (name: string) => void;
@@ -191,7 +198,7 @@ export const useStore = create<State>()((set, get) => {
     selected: null, hover: null, preview: null, blocked: null, toast: null,
     ai: { status: 'idle', plan: 'balanced', open: false, progress: 0, trainGain: 0, result: null },
     assumptions: DEFAULT_ASSUMPTIONS,
-    rackColor: 'popularity', showIcons: true, visits: noVisits(), board: readBoard(), boardOpen: false, savedRound: false,
+    rackColor: 'popularity', labels: 'photos', screen: 'home', focus: null, visits: noVisits(), board: readBoard(), boardOpen: false, savedRound: false,
     batchOpen: false, batch: DEFAULT_BATCH, replayBatches: false,
     newItemOpen: false, realData: null, whatIf: null, rushOpen: false,
     rush: { settings: DEFAULT_RUSH_SETTINGS, active: false, playing: false, speed: 300, clock: 0, end: 0,
@@ -262,7 +269,9 @@ export const useStore = create<State>()((set, get) => {
     },
 
     setRackColor: rackColor => set({ rackColor }),
-    setShowIcons: showIcons => set({ showIcons }),
+    setLabels: labels => set({ labels }),
+    setFocus: focus => set({ focus }),
+    setScreen: screen => set(s => ({ screen, rush: screen === 'twin' ? s.rush : { ...s.rush, active: false, playing: false } })),
     resetVisits: () => set({ visits: noVisits() }),
     recordPick: slot => set(s => { const visits = [...s.visits]; visits[slot]++; return { visits }; }),
 

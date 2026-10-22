@@ -53,7 +53,7 @@ function Family({ cat, slots }: { cat: Category; slots: number[] }) {
 export function ItemIcons() {
   const assign = useStore(s => s.assign);
   const products = useStore(s => s.data?.products);
-  const show = useStore(s => s.showIcons);
+  const show = useStore(s => s.labels === 'symbols');
 
   const families = useMemo(() => {
     const by = new Map<string, number[]>();

@@ -1,6 +1,6 @@
 // ui/TopBar.tsx — title, game mode, rack view and the tool tabs that open the side drawer
 import { useShallow } from 'zustand/react/shallow';
-import { useStore, type Mode, type Panel, type RackColor } from '../store';
+import { useStore, type Mode, type Panel, type RackColor, type ShelfLabels } from '../store';
 
 const MODES: [Mode, string][] = [['challenge', 'Challenge'], ['sandbox', 'Sandbox']];
 const VIEWS: [RackColor, string][] = [
@@ -11,7 +11,7 @@ const VIEWS: [RackColor, string][] = [
 export function TopBar() {
   const s = useStore(useShallow(s => ({
     mode: s.mode, setMode: s.setMode, rackColor: s.rackColor, setRackColor: s.setRackColor,
-    showIcons: s.showIcons, setShowIcons: s.setShowIcons,
+    labels: s.labels, setLabels: s.setLabels, setScreen: s.setScreen,
     open: (s.ai.open ? 'ai' : s.batchOpen ? 'batch' : s.rushOpen ? 'rush' : s.newItemOpen ? 'newItem' : s.boardOpen ? 'board' : null) as Panel | null,
     whatIf: s.whatIf, exitWhatIf: s.exitWhatIf,
     openPanel: s.openPanel, boardCount: s.board.length, aiRunning: s.ai.status === 'running',
@@ -30,13 +30,13 @@ export function TopBar() {
           <button className="link" onClick={s.exitWhatIf}>Back to real data</button>
         </div>
       )}
-      <div className="brand">
+      <button className="brand" onClick={() => s.setScreen('home')} title="Home">
         <span className="logo" aria-hidden>▦</span>
-        <div>
-          <b>Warehouse Digital Twin</b>
-          <span className="sub">Real orders · Nov 2011 · scored on an unseen week</span>
-        </div>
-      </div>
+        <span>
+          <b>Pick &amp; Pack</b>
+          <span className="sub">Warehouse digital twin · real orders, Nov 2011</span>
+        </span>
+      </button>
 
       <div className="seg" role="group" aria-label="Game mode">
         {MODES.map(([k, label]) => (
@@ -49,8 +49,11 @@ export function TopBar() {
         <select value={s.rackColor} onChange={e => s.setRackColor(e.target.value as RackColor)}>
           {VIEWS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
         </select>
-        <button className={`toggle ${s.showIcons ? 'on' : ''}`} onClick={() => s.setShowIcons(!s.showIcons)}
-                aria-pressed={s.showIcons} title="Show product symbols on the racks">🏷 Symbols</button>
+        <select value={s.labels} onChange={e => s.setLabels(e.target.value as ShelfLabels)} aria-label="Shelf labels">
+          <option value="photos">Photo cards</option>
+          <option value="symbols">Symbols</option>
+          <option value="off">No labels</option>
+        </select>
       </label>
 
       <nav className="tabs" aria-label="Tools">
