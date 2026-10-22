@@ -64,6 +64,7 @@ type State = {
   toast: { text: string; id: number } | null;
 
   rackColor: RackColor;
+  showIcons: boolean;          // product-family symbols on the racks
   visits: number[];            // picks per slot during the current replay (heatmap)
   board: Entry[];              // leaderboard, this browser only
   boardOpen: boolean;
@@ -90,6 +91,7 @@ type State = {
   submit: () => void;
   notify: (text: string) => void;
   setRackColor: (c: RackColor) => void;
+  setShowIcons: (on: boolean) => void;
   resetVisits: () => void;
   recordPick: (slot: number) => void;
   saveResult: (name: string) => void;
@@ -156,7 +158,7 @@ export const useStore = create<State>()((set, get) => {
     selected: null, hover: null, preview: null, blocked: null, toast: null,
     ai: { status: 'idle', plan: 'balanced', open: false, progress: 0, trainGain: 0, result: null },
     assumptions: DEFAULT_ASSUMPTIONS,
-    rackColor: 'popularity', visits: noVisits(), board: readBoard(), boardOpen: false, savedRound: false,
+    rackColor: 'popularity', showIcons: true, visits: noVisits(), board: readBoard(), boardOpen: false, savedRound: false,
     batchOpen: false, batch: DEFAULT_BATCH, replayBatches: false,
     sample: [], playing: true, speed: 10, replayKey: 0, routeSlots: [], picked: 0, hud: emptyHud,
 
@@ -224,6 +226,7 @@ export const useStore = create<State>()((set, get) => {
     },
 
     setRackColor: rackColor => set({ rackColor }),
+    setShowIcons: showIcons => set({ showIcons }),
     resetVisits: () => set({ visits: noVisits() }),
     recordPick: slot => set(s => { const visits = [...s.visits]; visits[slot]++; return { visits }; }),
 

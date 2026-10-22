@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { samePickPoint } from '../engine/layouts';
 import { isHeavy, zoneOf } from '../engine/rules';
+import { categoryOf } from '../engine/categories';
 import { useStore } from '../store';
 import { fmtDelta, fmtM, fmtPct } from './format';
 
@@ -12,7 +13,8 @@ export function Tooltip() {
   const target = selected !== null && hover.slot !== selected;
   return (
     <div className="tooltip" style={{ left: hover.x + 14, top: hover.y + 14 }}>
-      <b>{p.name}</b>
+      <b>{categoryOf(p).symbol} {p.name}</b>
+      <div className="muted">{categoryOf(p).label}</div>
       <div className="muted">{p.picksTrain} picks in 3 weeks · rank {p.id + 1} · slot {hover.slot} (zone {zoneOf[hover.slot]})</div>
       <div className="muted">
         Frequency {p.abcVelocity} · Cost {p.abcCost} · {p.weightClass} ≈{p.weightKg} kg (est.){isHeavy(p) ? ' · heavy' : ''}

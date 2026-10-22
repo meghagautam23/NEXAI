@@ -50,6 +50,7 @@ export function PlayCard() {
       <details className="help">
         <summary>How to play</summary>
         <ul>
+          <li>Symbols show each product's family (👜 bags, 🎄 Christmas, ♨️ hot water bottles…); hover for its name.</li>
           <li>Click a rack, then another, to swap their products. <b>Esc</b> cancels.</li>
           <li>Purple arcs link products often bought together; hover a target to preview the saving.</li>
           <li>You plan on 1–21 Nov. {challenge

@@ -157,6 +157,10 @@ React Three Fiber (`src/scene/`), with a small HUD (`src/ui/Hud.tsx`) and shared
   animated distance equals the scored distance (tested). The current order's route is drawn as a dashed line.
 - **Replay:** 25 evenly spaced sample orders from the test week, at 1×, 10× or 50×. The HUD labels the
   replay sample and the score (all test-week orders) separately.
+- **Symbols:** every bay shows its product's family on top (`src/engine/categories.ts`: 17 families from
+  the descriptions, e.g. 👜 bags ×20, 🎄 Christmas decorations ×13, 🧁 baking ×10, ♨️ hot water bottles ×8),
+  so you can see at a glance which kinds of products sit together. They move with their products when
+  you swap, and can be hidden with **Symbols** in the top bar.
 - **Performance:** no shadows, pixel ratio capped at 1.5, labels painted onto textures (no font download).
 
 ## Game

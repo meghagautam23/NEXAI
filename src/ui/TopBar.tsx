@@ -11,6 +11,7 @@ const VIEWS: [RackColor, string][] = [
 export function TopBar() {
   const s = useStore(useShallow(s => ({
     mode: s.mode, setMode: s.setMode, rackColor: s.rackColor, setRackColor: s.setRackColor,
+    showIcons: s.showIcons, setShowIcons: s.setShowIcons,
     open: (s.ai.open ? 'ai' : s.batchOpen ? 'batch' : s.boardOpen ? 'board' : null) as Panel | null,
     openPanel: s.openPanel, boardCount: s.board.length, aiRunning: s.ai.status === 'running',
   })));
@@ -41,6 +42,8 @@ export function TopBar() {
         <select value={s.rackColor} onChange={e => s.setRackColor(e.target.value as RackColor)}>
           {VIEWS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
         </select>
+        <button className={`toggle ${s.showIcons ? 'on' : ''}`} onClick={() => s.setShowIcons(!s.showIcons)}
+                aria-pressed={s.showIcons} title="Show product symbols on the racks">🏷 Symbols</button>
       </label>
 
       <nav className="tabs" aria-label="Tools">

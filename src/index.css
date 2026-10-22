@@ -86,6 +86,8 @@ input[type='number'] { width: 80px; }
   background: var(--accent); color: #fff; font-size: 18px;
 }
 .view { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.toggle { padding: 5px 9px; border-color: var(--line); color: var(--muted); }
+.toggle.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .tabs { display: flex; gap: 6px; }
 .tab { display: inline-flex; align-items: center; gap: 6px; border-color: var(--line); }
 .tab.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
