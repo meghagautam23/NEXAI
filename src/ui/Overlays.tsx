@@ -5,6 +5,7 @@ import { isHeavy, zoneOf } from '../engine/rules';
 import { categoryOf } from '../engine/categories';
 import { useStore } from '../store';
 import { fmtDelta, fmtM, fmtPct } from './format';
+import { STAR_STEPS, starsFor } from '../store';
 
 export function Tooltip() {
   const { hover, data, productAt, selected, preview, blocked } = useStore();
@@ -43,16 +44,25 @@ export function ResultCard() {
 }
 
 function Result() {
-  const { yours, ref, history, reset, saveResult, savedRound } = useStore();
+  const { yours, ref, history, reset, saveResult, savedRound, ai } = useStore();
   const [closed, setClosed] = useState(false);
   const [name, setName] = useState('');
   if (closed || !yours || !ref) return null;
   const vsBase = yours.test.totalDist / ref.test.baseline.totalDist - 1;
   const vsOrig = yours.test.totalDist / ref.test.original.totalDist - 1;
   const won = vsBase < 0;
+  const beatAi = !!ai.result && yours.test.totalDist < ai.result.test.totalDist;
+  const stars = starsFor(vsBase, beatAi);
+  const next = STAR_STEPS[stars];
   return (
     <div className="result">
-      <h2>{won ? 'You beat the Baseline' : 'The Baseline wins this time'}</h2>
+      <div className="stars" aria-label={`${stars} of 3 stars`}>
+        {[0, 1, 2].map(i => <span key={i} className={i < stars ? 'on' : ''}>★</span>)}
+      </div>
+      <h2>{beatAi ? 'You beat the AI!' : won ? 'You beat the Baseline' : 'The Baseline wins this time'}</h2>
+      {stars < 3 && next !== undefined && (
+        <p className="small">Next star at {fmtPct(next)} vs Baseline{ai.result ? ', or beat the AI' : ''}.</p>
+      )}
       <p className="muted">Scored on the unseen test week, {history.length} swap{history.length === 1 ? '' : 's'} used</p>
       <div className="row spread">
         <div><span className="caption">Your walking</span><b className="num">{fmtM(yours.test.totalDist)}</b></div>

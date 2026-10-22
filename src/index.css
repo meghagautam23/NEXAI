@@ -178,6 +178,24 @@ details p { margin-top: 8px; }
 .move-head { display: flex; justify-content: space-between; gap: 8px; }
 .move-head .good { white-space: nowrap; font-weight: 600; }
 
+.newitem { display: flex; flex-direction: column; gap: 6px; }
+.newitem input, .newitem select { width: 100%; }
+.newitem .label { margin-top: 4px; }
+.newitem button.block { margin-top: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; padding: 3px 9px; border-radius: 14px; border-color: var(--line); color: var(--muted); }
+.newitem-head { display: flex; align-items: center; gap: 10px; }
+.newitem-head .sym { font-size: 30px; line-height: 1; }
+.kpis b.small-b { font-size: 13px; }
+.alike { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.alike li { display: flex; justify-content: space-between; gap: 8px; }
+.whatif {
+  position: absolute; left: 50%; top: calc(var(--topbar) + 10px); transform: translateX(-50%); z-index: 25;
+  display: flex; gap: 10px; align-items: center; padding: 6px 14px; border-radius: 18px;
+  background: #fff4dc; border: 1px solid #f0c36a; color: #6b4a00; white-space: nowrap; box-shadow: var(--shadow);
+}
+.app.drawer-open .whatif { left: calc(50% - var(--drawer) / 2); }
+
 /* ---------- overlays ---------- */
 .tooltip {
   position: fixed; z-index: 40; pointer-events: none; max-width: 300px;
@@ -203,6 +221,11 @@ details p { margin-top: 8px; }
   display: flex; flex-direction: column; gap: 10px;
 }
 .result h2 { font-size: 18px; }
+.stars { display: flex; gap: 6px; font-size: 30px; line-height: 1; color: var(--line-strong); }
+.stars .on { color: #f2b01e; animation: pop 0.4s ease-out both; }
+.stars .on:nth-child(2) { animation-delay: 0.12s; }
+.stars .on:nth-child(3) { animation-delay: 0.24s; }
+@keyframes pop { from { transform: scale(0.3); opacity: 0; } 70% { transform: scale(1.25); } }
 .row { display: flex; align-items: center; gap: 8px; }
 .row.spread { justify-content: space-between; }
 .row.spread > div { display: flex; flex-direction: column; }
@@ -225,4 +248,5 @@ details p { margin-top: 8px; }
   .board { left: var(--gap); bottom: calc(var(--gap) + 64px); }
   .board .card-head .muted { display: none; }
   .readout { min-width: 0; }
+  .app.drawer-open .whatif { display: none; } /* the drawer covers the screen and says the same */
 }

@@ -11,7 +11,7 @@ import { TopBar } from './ui/TopBar'
 
 function App() {
   const ready = useStore(s => s.data !== null)
-  const drawerOpen = useStore(s => s.ai.open || s.batchOpen || s.boardOpen)
+  const drawerOpen = useStore(s => s.ai.open || s.batchOpen || s.boardOpen || s.newItemOpen)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {

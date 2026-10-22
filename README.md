@@ -181,7 +181,7 @@ uses.
 
 | Mode | Starts from | Swaps | Test-week score |
 |---|---|---|---|
-| **Challenge** (default) | Baseline | 10, undo refunds one | Hidden until you **Submit**; then win if you beat the Baseline |
+| **Challenge** (default) | Baseline | 10, undo refunds one | Hidden until you **Submit**; then 1–3 stars: ★ beat the Baseline, ★★ by 1%, ★★★ by 2.5% or beat AI Suggest's layout |
 | **Sandbox** | Original | Unlimited; **Load Baseline** available | Shown live |
 
 The scoreboard lists Original, Baseline, Yours and AI Suggest on all 735 test-week orders: total distance, mean,
@@ -252,6 +252,30 @@ Reference runs (45,000 swaps, seeds 1–3, test week vs Baseline): *Max saving* 
 Limiting moves does not cost much on the unseen week: it also stops the search overfitting the train
 weeks. A browser run uses a random seed, so its numbers vary slightly. Tested in
 `src/engine/optimizer.test.ts`.
+
+## New products (cold start)
+
+**+ New item** in the top bar. A new product has no pick history, so neither the Baseline nor AI Suggest
+can place it. `src/engine/newItem.ts` does what slotting teams do for a new SKU:
+
+1. **Look-alikes.** Product names carry collection and type words ("Jumbo Bag … Retrospot", "Hot Water
+   Bottle …"), and customers buy within collections. The three most similar products (shared words, plus
+   the same family) predict its picks per three weeks, its velocity class, and which orders it joins.
+   Weight class is estimated from the name with the same rules as the pipeline, or set by hand.
+2. **Make room.** The floor is full, so the slowest mover goes to reserve storage.
+3. **Test every slot.** Starting from the current layout, the new item is tried in every allowed slot
+   (heavy items front only) with the real simulator on the train weeks; a slot other than the freed one
+   moves its product into the freed slot. The best three are recommended with the walking saved per day
+   and the nearest look-alike.
+4. **Place it.** This loads a what-if copy of the warehouse in Sandbox: the retired product's lines are
+   removed, the new item joins the orders its look-alikes are in (train and test weeks), velocity classes
+   and bought-together pairs are recomputed. Scoreboard, AI Suggest and batch picking all include it.
+   **Back to real data** restores the real warehouse; what-if results are not saved to the leaderboard.
+
+Example: *Jumbo Bag Woodland Animals* looks like Jumbo Bag Alphabet, Apples and 50'S Christmas, so expect
+about 113 picks in three weeks (class B). Hand Warmer Red Retrospot (80 picks) goes to reserve. The best
+slot sits 2.4 m from Jumbo Bag Apples and walks about 48 m a day less than simply using the freed slot.
+Tested in `src/engine/newItem.test.ts`.
 
 ## Batch picking
 

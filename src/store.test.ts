@@ -197,3 +197,29 @@ describe('AI Suggest in the store', () => {
     useStore.setState({ abcZones: false })
   })
 })
+
+describe('New item what-if and stars', () => {
+  it('places a new product in a what-if world and returns to the real data', async () => {
+    const { planNewItem } = await import('./engine/newItem')
+    const plan = planNewItem(data, st().assign, { name: 'Lunch Bag Retrospot Green' }, 18)
+    st().placeNewItem(plan, 0)
+    expect(st().whatIf?.name).toBe('Lunch Bag Retrospot Green')
+    expect(st().mode).toBe('sandbox')
+    expect(st().data!.products[plan.retire].name).toBe('Lunch Bag Retrospot Green')
+    expect(st().assign).toEqual(plan.options[0].assign)
+    st().exitWhatIf()
+    expect(st().whatIf).toBeNull()
+    expect(st().data!.products[plan.retire].name).toBe(data.products[plan.retire].name)
+    useStore.setState({ mode: 'challenge' })
+  })
+
+  it('rates a Challenge with up to three stars', async () => {
+    const { starsFor } = await import('./store')
+    expect(starsFor(0.01, false)).toBe(0)
+    expect(starsFor(-0.002, false)).toBe(1)
+    expect(starsFor(-0.015, false)).toBe(2)
+    expect(starsFor(-0.03, false)).toBe(3)
+    expect(starsFor(-0.002, true)).toBe(3)   // beating the AI is worth three
+    expect(starsFor(0.002, true)).toBe(0)    // but you still have to beat the Baseline
+  })
+})

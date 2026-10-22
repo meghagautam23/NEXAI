@@ -8,6 +8,7 @@ import { partnersOf, type Data } from './engine/data';
 import { baselineLayout, originalLayout, samePickPoint } from './engine/layouts';
 import { sampleOrders } from './engine/replay';
 import { DEFAULT_BATCH, type BatchOptions } from './engine/batching';
+import type { NewItemPlan } from './engine/newItem';
 import { makeEngine, scoreLayout, type Engine, type Stats } from './engine/sim';
 import { addEntry, readBoard, type Entry } from './leaderboard';
 import { swapProblem } from './engine/rules';
@@ -32,6 +33,15 @@ export type AiResult = {
 };
 export type AiState = { status: 'idle' | 'running' | 'done'; plan: AiPlan; open: boolean; progress: number; trainGain: number; result: AiResult | null };
 
+// Challenge rating: one star for beating the Baseline, two at 1% better, three at 2.5% better or for
+// beating AI Suggest's layout (when it has been run) on the unseen week
+export const STAR_STEPS = [0, -0.01, -0.025];
+export function starsFor(vsBaseline: number, beatAi: boolean): number {
+  if (vsBaseline >= 0) return 0;
+  if (beatAi) return 3;
+  return STAR_STEPS.filter(t => vsBaseline < t).length;
+}
+
 export type RackColor = 'popularity' | 'visits' | 'velocity' | 'cost' | 'weight';
 export const CHALLENGE_SWAPS = 10;
 export const SPEEDS = [1, 10, 50] as const;
@@ -40,7 +50,7 @@ export const SPEEDS = [1, 10, 50] as const;
 export type ReplayHud = {
   index: number; count: number; orders: number; orderId: string; lines: number; dist: number; time: number; done: boolean;
 };
-export type Panel = 'ai' | 'board' | 'batch';
+export type Panel = 'ai' | 'board' | 'batch' | 'newItem';
 type Ref = { original: Stats; baseline: Stats };
 
 type State = {
@@ -69,6 +79,9 @@ type State = {
   board: Entry[];              // leaderboard, this browser only
   boardOpen: boolean;
   batchOpen: boolean;
+  newItemOpen: boolean;
+  realData: Data | null;       // the real data while a what-if (new item) world is loaded
+  whatIf: { name: string; symbol: string; retired: string; slot: number } | null;
   batch: BatchOptions;          // cart for batch picking
   replayBatches: boolean;       // the 3D replay walks batches instead of single orders
   savedRound: boolean;         // this Challenge result is already on the board
@@ -100,6 +113,8 @@ type State = {
   openPanel: (panel: Panel | null) => void; // the top-right panels share one place
   setBatch: (patch: Partial<BatchOptions>) => void;
   setReplayBatches: (on: boolean) => void;
+  placeNewItem: (plan: NewItemPlan, option: number) => void;
+  exitWhatIf: () => void;
   setAbcZones: (on: boolean) => void;
 
   ai: AiState;
@@ -160,6 +175,7 @@ export const useStore = create<State>()((set, get) => {
     assumptions: DEFAULT_ASSUMPTIONS,
     rackColor: 'popularity', showIcons: true, visits: noVisits(), board: readBoard(), boardOpen: false, savedRound: false,
     batchOpen: false, batch: DEFAULT_BATCH, replayBatches: false,
+    newItemOpen: false, realData: null, whatIf: null,
     sample: [], playing: true, speed: 10, replayKey: 0, routeSlots: [], picked: 0, hud: emptyHud,
 
     init: data => {
@@ -233,6 +249,7 @@ export const useStore = create<State>()((set, get) => {
     saveResult: name => {
       const { submitted, savedRound, yours, ref, history, assign, notify } = get();
       if (!submitted || savedRound || !yours || !ref) return;
+      if (get().whatIf) return notify('What-if results are not saved to the leaderboard.');
       const total = yours.test.totalDist;
       const { board, saved } = addEntry({
         id: `${Date.now()}`, name: name.trim().slice(0, 24) || 'Anonymous', total,
@@ -248,8 +265,29 @@ export const useStore = create<State>()((set, get) => {
     loadLayout: assign => { if (get().data) load(assign, { mode: 'sandbox', boardOpen: false }); },
     setBoardOpen: boardOpen => get().openPanel(boardOpen ? 'board' : null),
     openPanel: panel => set(s => ({
-      boardOpen: panel === 'board', batchOpen: panel === 'batch', ai: { ...s.ai, open: panel === 'ai' },
+      boardOpen: panel === 'board', batchOpen: panel === 'batch', newItemOpen: panel === 'newItem',
+      ai: { ...s.ai, open: panel === 'ai' },
     })),
+
+    // Load the what-if world (new item in, slowest product to reserve) in Sandbox with the chosen slot
+    placeNewItem: (plan, option) => {
+      const { data, realData } = get();
+      if (!data) return;
+      const real = realData ?? data;
+      const products = real.products;
+      set(s => ({
+        realData: real, mode: 'sandbox', ai: { ...s.ai, result: null, status: 'idle' },
+        whatIf: { name: plan.name, symbol: plan.symbol, retired: products[plan.retire].name, slot: plan.options[option].slot },
+      }));
+      get().init(plan.world);
+      load(plan.options[option].assign, { mode: 'sandbox' });
+    },
+    exitWhatIf: () => {
+      const { realData } = get();
+      if (!realData) return;
+      set(s => ({ realData: null, whatIf: null, ai: { ...s.ai, result: null, status: 'idle' } }));
+      get().init(realData);
+    },
     setBatch: patch => set(s => ({ batch: { ...s.batch, ...patch }, replayKey: s.replayBatches ? s.replayKey + 1 : s.replayKey })),
     setReplayBatches: replayBatches => set(s => ({ replayBatches, replayKey: s.replayKey + 1, playing: true })),
     // Changing the rules starts a fresh round, so a result is always played under one rule set

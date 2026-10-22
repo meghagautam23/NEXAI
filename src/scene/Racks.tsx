@@ -45,11 +45,12 @@ export function Racks() {
   }, []);
 
   // Base colour: darker blue = picked more often in the train weeks (by rank, so the shades spread
-  // evenly; product ids are already in rank order). Then the current order, selection and hover on top.
+  // evenly). Then the current order, selection and hover on top.
   useLayoutEffect(() => {
     const m = mesh.current!;
     if (!products || assign.length !== products.length) return;
     const c = new Color(), last = products.length - 1;
+    const rank = new Map([...products].sort((a, b) => b.picksTrain - a.picksTrain || a.id - b.id).map((p, i) => [p.id, i]));
     if (rackColor === 'visits') {
       const max = Math.max(...visits);
       for (let s = 0; s < SLOTS; s++) m.setColorAt(s, heat(c, visits[s], max));
@@ -60,7 +61,7 @@ export function Racks() {
           : rackColor === 'cost' ? COST[pr.abcCost] : WEIGHT[weightIndex(pr.weightClass)]));
       });
     } else {
-      assign.forEach((slot, p) => m.setColorAt(slot, c.lerpColors(HIGH, LOW, p / last)));
+      assign.forEach((slot, p) => m.setColorAt(slot, c.lerpColors(HIGH, LOW, rank.get(p)! / last)));
       routeSlots.forEach((slot, i) => m.setColorAt(slot, i < picked ? PICKED : TO_PICK));
     }
     if (selected !== null) {
