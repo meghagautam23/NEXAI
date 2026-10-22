@@ -32,6 +32,6 @@ retail.parquet
 __pycache__/
 .env*
 
-# Python virtual environment
-.venv/
-.pytest_cache/
+# Local Claude Code config
+.claude/
+!.env.example

@@ -12,8 +12,9 @@ from pathlib import Path
 DATA = Path(sys.argv[1] if len(sys.argv) > 1 else "public/data")
 FILES = ["products.json", "orders.json", "affinity.json"]
 CODE = re.compile(r"^\d{5}[A-Z]{0,2}$")
-KEYS = {"id", "code", "name", "picksTrain", "picksMonth", "valueTrain", "abcVelocity", "abcCost", "unitsPerLine", "fl"}
-FL_BANDS = [6, 8, 10, 12, 14, 17, 22]
+CATEGORIES = {"Cosy & warm", "Lights & candles", "Bags & storage", "Kitchen & baking", "Party & paper",
+              "Christmas", "Games & crafts", "Home & garden", "Gifts & gadgets"}
+PRODUCT_KEYS = {"id", "code", "name", "picksTrain", "category", "price", "valueTrain", "abc", "fl"}
 START, CUT, END = datetime(2011, 11, 1), datetime(2011, 11, 22), datetime(2011, 12, 1)
 errors = []
 
@@ -37,27 +38,27 @@ products = json.loads((DATA / "products.json").read_text())
 orders = json.loads((DATA / "orders.json").read_text())
 affinity = json.loads((DATA / "affinity.json").read_text())
 
-# products.json: 100 entries, id = 0..99, ranked by train picks; keys in KEYS
+# products.json: [{ id, code, name, picksTrain, category, price, valueTrain, abc, fl }], 100 entries, id = 0..99
 check(isinstance(products, list) and len(products) == 100, "products.json must hold exactly 100 products")
 for i, p in enumerate(products):
-    check(set(p) == KEYS, f"product {i}: keys must be {sorted(KEYS)}")
-    check(p.get("abcVelocity") == ("A" if i < 20 else "B" if i < 50 else "C"), f"product {i}: abcVelocity must follow rank 20/30/50")
-    check(p.get("abcCost") in ("A", "B", "C"), f"product {i}: abcCost must be A, B or C")
+    check(set(p) == PRODUCT_KEYS, f"product {i}: keys must be {sorted(PRODUCT_KEYS)}")
+    check(p.get("category") in CATEGORIES, f"product {i}: unknown category {p.get('category')!r}")
+    check(isinstance(p.get("price"), (int, float)) and p["price"] > 0, f"product {i}: price must be > 0")
     check(isinstance(p.get("valueTrain"), (int, float)) and p["valueTrain"] > 0, f"product {i}: valueTrain must be > 0")
-    upl = p.get("unitsPerLine")
-    check(isinstance(upl, (int, float)) and upl > 0, f"product {i}: unitsPerLine must be > 0")
-    if isinstance(upl, (int, float)):
-        check(p.get("fl") == next((k for k, b in enumerate(FL_BANDS) if upl <= b), 7),
-              f"product {i}: fl must be the band of unitsPerLine ({upl})")
+    check(p.get("abc") in ("A", "B", "C"), f"product {i}: abc must be A, B or C")
+    check(isinstance(p.get("fl"), int) and 0 <= p["fl"] <= 7, f"product {i}: fl must be an int 0..7")
     check(p.get("id") == i, f"product {i}: id must equal its index (0..99)")
     check(isinstance(p.get("code"), str) and CODE.match(p["code"]), f"product {i}: bad StockCode {p.get('code')!r}")
     check(isinstance(p.get("name"), str), f"product {i}: name must be a string")
     check(isinstance(p.get("picksTrain"), int) and p["picksTrain"] > 0, f"product {i}: picksTrain must be a positive int")
-    check(isinstance(p.get("picksMonth"), int) and p["picksMonth"] >= p.get("picksTrain", 0),
-          f"product {i}: picksMonth must be an int >= picksTrain")
 check(len({p.get("code") for p in products}) == len(products), "product codes must be unique")
 picks = [p.get("picksTrain", 0) for p in products]
 check(picks == sorted(picks, reverse=True), "products must be ordered by picksTrain, descending")
+classes = [p.get("abc") for p in products]
+check([classes.count(k) for k in "ABC"] == [20, 30, 50], "ABC split must be 20 / 30 / 50 products")
+ranked = sorted(products, key=lambda p: -p.get("valueTrain", 0))
+check(all(p.get("abc") == ("A" if i < 20 else "B" if i < 50 else "C") for i, p in enumerate(ranked)),
+      "ABC must follow the valueTrain ranking")
 
 # orders.json: { train: Order[], test: Order[] }, Order = { id, t, lines: [{ p, q }] }
 check(isinstance(orders, dict) and set(orders) == {"train", "test"}, "orders.json must be {train, test}")
@@ -91,11 +92,6 @@ lines_per_p = Counter(l["p"] for o in train for l in o["lines"])
 for p in products:
     if not check(lines_per_p[p["id"]] == p["picksTrain"],
                  f"product {p['id']}: picksTrain={p['picksTrain']} but train has {lines_per_p[p['id']]} lines"):
-        break
-month_lines = lines_per_p + Counter(l["p"] for o in orders.get("test", []) for l in o["lines"])
-for p in products:
-    if not check(month_lines[p["id"]] == p["picksMonth"],
-                 f"product {p['id']}: picksMonth={p['picksMonth']} but the month has {month_lines[p['id']]} lines"):
         break
 
 # affinity.json: [[a, b, n]], top 500 pairs, computed from TRAIN only
