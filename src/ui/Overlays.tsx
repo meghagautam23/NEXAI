@@ -1,18 +1,23 @@
 // ui/Overlays.tsx — rack tooltip with swap preview, toast, and the Challenge result card
 import { useState } from 'react';
 import { samePickPoint } from '../engine/layouts';
+import { isHeavy, zoneOf } from '../engine/rules';
 import { useStore } from '../store';
 import { fmtDelta, fmtM, fmtPct } from './format';
 
 export function Tooltip() {
-  const { hover, data, productAt, selected, preview } = useStore();
+  const { hover, data, productAt, selected, preview, blocked } = useStore();
   if (!hover || !data || !productAt.length) return null;
   const p = data.products[productAt[hover.slot]];
   const target = selected !== null && hover.slot !== selected;
   return (
     <div className="tooltip" style={{ left: hover.x + 14, top: hover.y + 14 }}>
       <b>{p.name}</b>
-      <div className="muted">{p.picksTrain} picks in 3 weeks · rank {p.id + 1} · slot {hover.slot}</div>
+      <div className="muted">{p.picksTrain} picks in 3 weeks · rank {p.id + 1} · slot {hover.slot} (zone {zoneOf[hover.slot]})</div>
+      <div className="muted">
+        Frequency {p.abcVelocity} · Cost {p.abcCost} · {p.weightClass} ≈{p.weightKg} kg (est.){isHeavy(p) ? ' · heavy' : ''}
+      </div>
+      {target && blocked?.slot === hover.slot && <div className="bad">Not allowed: {blocked.reason}</div>}
       {target && samePickPoint(selected, hover.slot) && <div className="muted">Same pick point: no change</div>}
       {target && preview?.slot === hover.slot && (
         <div className={preview.delta < 0 ? 'good' : preview.delta > 0 ? 'bad' : 'muted'}>

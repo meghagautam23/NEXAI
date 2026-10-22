@@ -3,6 +3,7 @@ import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { useStore } from '../store';
 import { AffinityLines } from './AffinityLines';
+import { ZoneFloor } from './ZoneFloor';
 import { Dock, Floor } from './Warehouse';
 import { Picker } from './Picker';
 import { Racks } from './Racks';
@@ -17,6 +18,7 @@ export function Scene() {
       <Floor />
       <Dock />
       <Racks />
+      <ZoneFloor />
       {ready && <Picker />}
       {ready && <AffinityLines />}
       <OrbitControls target={[-1.5, 0, -0.5]} enableDamping minDistance={8} maxDistance={55}

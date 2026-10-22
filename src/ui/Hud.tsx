@@ -1,9 +1,13 @@
 // ui/Hud.tsx — mode, swaps and replay controls (top left)
 import { CHALLENGE_SWAPS, SPEEDS, useStore, type Mode, type RackColor } from '../store';
 import { fmtM, fmtPct, fmtTime } from './format';
+import { COST, HEAVY_FLOOR, VELOCITY, WEIGHT } from './palette';
 
 const MODES: [Mode, string][] = [['challenge', 'Challenge'], ['sandbox', 'Sandbox']];
-const COLORS: [RackColor, string][] = [['popularity', 'Popularity'], ['visits', 'Visit heatmap']];
+const COLORS: [RackColor, string][] = [
+  ['popularity', 'Popularity (picks)'], ['visits', 'Visit heatmap (this replay)'],
+  ['velocity', 'ABC by frequency (zones)'], ['cost', 'ABC by cost (display only)'], ['weight', 'Weight class FL01–FL07 (est.)'],
+];
 
 export function Hud() {
   const s = useStore();
@@ -22,12 +26,16 @@ export function Hud() {
         ))}
       </div>
 
-      {mode === 'challenge' ? (
+      {mode === 'challenge' ? (<>
         <p className="muted small">
           Start from the Baseline and beat it with {CHALLENGE_SWAPS} swaps. Plan on the last three weeks;
           you are scored on the next week, which stays hidden until you submit.
         </p>
-      ) : (
+        <label className="check small">
+          <input type="checkbox" checked={s.abcZones} onChange={e => s.setAbcZones(e.target.checked)} />
+          Keep ABC zones (class A items stay in zone A, and so on)
+        </label>
+      </>) : (
         <p className="muted small">Start from the Original layout. Unlimited swaps, every score shown live.</p>
       )}
 
@@ -50,7 +58,8 @@ export function Hud() {
             ? <button className="primary" onClick={s.reset}>Play again</button>
             : <button className="primary" onClick={s.submit} disabled={!used}>Submit</button>)}
         </div>
-        <p className="hint">Click a rack, then another to swap their products. Purple arcs link products often bought together.</p>
+        <p className="hint">Click a rack, then another to swap their products. Purple arcs link products often bought together.
+          Heavy items (FL05+, est.) must stay in the front 3 bays.</p>
       </section>
 
       <section>
@@ -77,20 +86,30 @@ export function Hud() {
       <section>
         <div className="row">
           <span className="caption">Racks</span>
-          <div className="seg">
-            {COLORS.map(([k, label]) => (
-              <button key={k} className={s.rackColor === k ? 'on' : ''} onClick={() => s.setRackColor(k)}>{label}</button>
-            ))}
-          </div>
+          <select value={s.rackColor} onChange={e => s.setRackColor(e.target.value as RackColor)} aria-label="Rack colours">
+            {COLORS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+          </select>
         </div>
         <div className="legend">
-          {s.rackColor === 'popularity' ? <>
+          {s.rackColor === 'popularity' && <>
             <span><i style={{ background: 'linear-gradient(90deg,#c9d3df,#1f5fa8)' }} />picked less → more</span>
             <span><i style={{ background: '#f28c28' }} />to pick</span>
             <span><i style={{ background: '#3fa34d' }} />picked</span>
-          </> : <>
+          </>}
+          {s.rackColor === 'visits' && <>
             <span><i style={{ background: '#d7dbe0' }} />not visited</span>
             <span><i style={{ background: 'linear-gradient(90deg,#ffd166,#c8102e)' }} />visits in this replay: few → most</span>
+          </>}
+          {s.rackColor === 'velocity' && <>
+            {(['A', 'B', 'C'] as const).map(k => <span key={k}><i style={{ background: VELOCITY[k] }} />class {k}</span>)}
+            <span>floor = zone A / B / C</span>
+          </>}
+          {s.rackColor === 'cost' && (['A', 'B', 'C'] as const).map(k =>
+            <span key={k}><i style={{ background: COST[k] }} />cost {k}</span>)}
+          {s.rackColor === 'weight' && <>
+            <span><i style={{ background: `linear-gradient(90deg,${WEIGHT.join(',')})` }} />FL01 → FL07</span>
+            <span><i style={{ background: HEAVY_FLOOR }} />floor = heavy zone (FL05+)</span>
+            <span>weights estimated from descriptions</span>
           </>}
           <span><i style={{ background: '#8b3fd9' }} />selected</span>
         </div>

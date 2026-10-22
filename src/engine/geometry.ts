@@ -21,3 +21,6 @@ export function leg(a: Pt, b: Pt) {
 
 // Slot geometry never changes, so precompute once (101 x 101)
 export const D: number[][] = pts.map(p => pts.map(q => leg(p, q).d));
+
+// Slots nearest the dock first; ties by slot id so everything built on it is identical on every run
+export const slotsByDock = [...Array(DOCK).keys()].sort((a, b) => D[DOCK][a] - D[DOCK][b] || a - b);

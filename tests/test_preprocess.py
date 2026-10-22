@@ -66,3 +66,14 @@ def test_affinity_uses_train_orders_only():
 
 def test_build_is_deterministic():
     assert run()[:3] == run()[:3]
+
+
+def test_classifications():
+    from preprocess import abc_by_rank, abc_by_share, estimate_weight, weight_class
+    assert [abc_by_rank(100, i) for i in (0, 19, 20, 49, 50, 99)] == ["A", "A", "B", "B", "C", "C"]
+    assert abc_by_share({"x": 80, "y": 15, "z": 5}) == {"x": "A", "y": "B", "z": "C"}
+    assert estimate_weight("Doormat Keep Calm") == 2.5
+    assert estimate_weight("Hot Water Bottle Keep Calm") == 0.45   # keyword order: before "HEART"
+    assert estimate_weight("Something unknown") == 0.15
+    assert [weight_class(kg) for kg in (0.05, 0.1, 0.45, 0.9, 1.2, 2.5, 6)] == \
+        ["FL01", "FL02", "FL03", "FL04", "FL05", "FL06", "FL07"]

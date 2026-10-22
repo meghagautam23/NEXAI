@@ -9,9 +9,10 @@ import { baselineLayout, originalLayout, samePickPoint } from './engine/layouts'
 import { sampleOrders } from './engine/replay';
 import { makeEngine, scoreLayout, type Engine, type Stats } from './engine/sim';
 import { addEntry, readBoard, type Entry } from './leaderboard';
+import { swapProblem } from './engine/rules';
 
 export type Mode = 'challenge' | 'sandbox';
-export type RackColor = 'popularity' | 'visits';
+export type RackColor = 'popularity' | 'visits' | 'velocity' | 'cost' | 'weight';
 export const CHALLENGE_SWAPS = 10;
 export const SPEEDS = [1, 10, 50] as const;
 
@@ -30,10 +31,12 @@ type State = {
   yours: { train: Stats; test: Stats } | null;
   history: [number, number][]; // swapped slot pairs, for undo
   submitted: boolean;          // Challenge: test-week result revealed
+  abcZones: boolean;           // Challenge option: products must stay in their velocity zone
 
   selected: number | null;     // slot
   hover: { slot: number; x: number; y: number } | null;
   preview: { slot: number; delta: number } | null; // train-week change if `selected` swaps with `slot`
+  blocked: { slot: number; reason: string } | null; // why `selected` may not swap with `slot`
   toast: { text: string; id: number } | null;
 
   rackColor: RackColor;
@@ -65,6 +68,7 @@ type State = {
   saveResult: (name: string) => void;
   loadLayout: (assign: number[]) => void;
   setBoardOpen: (open: boolean) => void;
+  setAbcZones: (on: boolean) => void;
   setPlaying: (playing: boolean) => void;
   setSpeed: (speed: number) => void;
   restart: () => void;
@@ -72,6 +76,9 @@ type State = {
 
 // Engines are mutable and hot, so they live outside React state
 let train: Engine | null = null, test: Engine | null = null;
+
+// Heavy items always stay in the front bays; ABC zones apply only in Challenge when switched on
+const rulesFor = (s: Pick<State, 'mode' | 'abcZones'>) => ({ abcZones: s.mode === 'challenge' && s.abcZones });
 
 const noVisits = () => Array<number>(100).fill(0);
 const emptyHud: ReplayHud = { index: 0, orderId: '', lines: 0, dist: 0, time: 0, done: false };
@@ -88,7 +95,7 @@ export const useStore = create<State>()((set, get) => {
     set(s => ({
       assign: [...test!.assign], productAt: [...test!.productAt],
       yours: { train: train!.stats(), test: test!.stats() },
-      history: [], submitted: false, savedRound: false, selected: null, preview: null,
+      history: [], submitted: false, savedRound: false, selected: null, preview: null, blocked: null,
       replayKey: s.replayKey + 1, playing: true, ...extra,
     }));
   };
@@ -105,8 +112,8 @@ export const useStore = create<State>()((set, get) => {
 
   return {
     data: null, partners: [], ref: null,
-    mode: 'challenge', assign: [], productAt: [], yours: null, history: [], submitted: false,
-    selected: null, hover: null, preview: null, toast: null,
+    mode: 'challenge', assign: [], productAt: [], yours: null, history: [], submitted: false, abcZones: false,
+    selected: null, hover: null, preview: null, blocked: null, toast: null,
     rackColor: 'popularity', visits: noVisits(), board: readBoard(), boardOpen: false, savedRound: false,
     sample: [], playing: true, speed: 10, replayKey: 0, routeSlots: [], picked: 0, hud: emptyHud,
 
@@ -131,6 +138,8 @@ export const useStore = create<State>()((set, get) => {
       if (selected === null) return set({ selected: slot, preview: null });
       if (selected === slot) return set({ selected: null, preview: null });
       if (samePickPoint(selected, slot)) return notify('No change: same pick point');
+      const problem = swapProblem(get().data!.products, test.productAt, selected, slot, rulesFor(get()));
+      if (problem) return notify(problem);
       if (mode === 'challenge' && history.length >= CHALLENGE_SWAPS)
         return notify('No swaps left. Submit your layout or undo a swap.');
       swapSlots(selected, slot);
@@ -138,15 +147,20 @@ export const useStore = create<State>()((set, get) => {
     },
 
     hoverSlot: (slot, x = 0, y = 0) => {
-      const { selected, hover, preview } = get();
-      if (slot === null) { if (hover || preview) set({ hover: null, preview: null }); return; }
+      const { selected, hover, preview, blocked, data } = get();
+      if (slot === null) { if (hover || preview || blocked) set({ hover: null, preview: null, blocked: null }); return; }
       const next: Partial<State> = { hover: { slot, x, y } };
-      if (selected !== null && slot !== selected && !samePickPoint(selected, slot) && train) {
+      const reason = selected !== null && slot !== selected && train && data
+        ? swapProblem(data.products, train.productAt, selected, slot, rulesFor(get())) : null;
+      if (reason) {
+        if (blocked?.slot !== slot) Object.assign(next, { blocked: { slot, reason }, preview: null });
+      } else if (selected !== null && slot !== selected && !samePickPoint(selected, slot) && train) {
+        if (blocked) next.blocked = null;
         if (preview?.slot !== slot) {
           const delta = train.swapDelta(train.productAt[selected], train.productAt[slot]).delta;
           next.preview = { slot, delta };
         }
-      } else if (preview) next.preview = null;
+      } else if (preview || blocked) Object.assign(next, { preview: null, blocked: null });
       set(next);
     },
 
@@ -186,6 +200,8 @@ export const useStore = create<State>()((set, get) => {
     // Open a saved layout in Sandbox, where every score is shown live
     loadLayout: assign => { if (get().data) load(assign, { mode: 'sandbox', boardOpen: false }); },
     setBoardOpen: boardOpen => set({ boardOpen }),
+    // Changing the rules starts a fresh round, so a result is always played under one rule set
+    setAbcZones: abcZones => { set({ abcZones }); get().reset(); },
 
     setPlaying: playing => set({ playing }),
     setSpeed: speed => set({ speed }),

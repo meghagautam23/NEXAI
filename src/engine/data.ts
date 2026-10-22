@@ -1,5 +1,13 @@
 // engine/data.ts — shapes of public/data/*.json (README, "Output") and a browser loader
-export type Product = { id: number; code: string; name: string; picksTrain: number; picksMonth: number };
+export type Abc = 'A' | 'B' | 'C';
+export type Product = {
+  id: number; code: string; name: string; picksTrain: number; picksMonth: number;
+  valueTrain: number;  // £ moved in the train weeks (quantity x price)
+  abcVelocity: Abc;    // by pick rank: top 20% A, next 30% B, last 50% C — drives slotting
+  abcCost: Abc;        // by value moved, Pareto 80/95% — display only
+  weightKg: number;    // ESTIMATED from the description (the dataset has no weights)
+  weightClass: string; // FL01 (lightest) .. FL07 (heaviest), banded from weightKg
+};
 export type Line = { p: number; q: number };
 export type Order = { id: string; t: string; lines: Line[] };
 export type Orders = { train: Order[]; test: Order[] };

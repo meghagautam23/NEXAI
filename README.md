@@ -64,7 +64,7 @@ from a UK online gift retailer: invoice, product code, quantity, timestamp, pric
 
 | File | Shape | Contents |
 |---|---|---|
-| `products.json` | `[{ id, code, name, picksTrain, picksMonth }]` | 100 products, `id` 0–99 in rank order |
+| `products.json` | `[{ id, code, name, picksTrain, picksMonth, valueTrain, abcVelocity, abcCost, weightKg, weightClass }]` | 100 products, `id` 0–99 in rank order; classifications below |
 | `orders.json` | `{ train: Order[], test: Order[] }`, `Order = { id, t, lines: [{ p, q }] }` | 1,617 train and 735 test orders |
 | `affinity.json` | `[[a, b, n]]` | Top 500 product pairs by how many train orders contain both |
 
@@ -105,17 +105,22 @@ train orders). `stats()` returns total, mean, median and p90 distance per order,
 order (walking at 1 m/s plus 10 s per line).
 
 **Layouts.** *Original* is an assumed "as received" layout: products in stock-code order fill slots
-0–99 (the dataset has no shelf positions). *Baseline* puts the products with most train-week picks in
-the slots nearest the dock, ties broken by slot id and product id.
+0–99 (the dataset has no shelf positions), then any heavy item outside the front bays trades places
+with a light item there. *Baseline* puts the products with most train-week picks in the slots nearest
+the dock, within the placement rules: heavy items first take the nearest front slot of their ABC zone,
+then every other product takes the nearest free slot of its zone. Ties are broken by slot id and
+product id.
 
 ### Results so far
 
+Both layouts obey the placement rules below (heavy items in the front bays).
+
 | Layout | Week | Total distance | Mean / order | Median | p90 | Avg time / order |
 |---|---|---:|---:|---:|---:|---:|
-| Original | Test (735 orders) | 51,844 m | 70.5 m | 70.0 m | 109.4 m | 144.0 s |
-| Baseline | Test (735 orders) | 49,414 m (−4.7%) | 67.2 m | 64.2 m | 113.8 m | 140.7 s |
-| Original | Train (1,617 orders) | 113,270 m | 70.0 m | 70.0 m | 109.4 m | 141.8 s |
-| Baseline | Train (1,617 orders) | 109,772 m (−3.1%) | 67.9 m | 68.4 m | 111.4 m | 139.6 s |
+| Original | Test (735 orders) | 51,884 m | 70.6 m | 70.0 m | 111.4 m | 144.0 s |
+| Baseline | Test (735 orders) | 49,597 m (−4.4%) | 67.5 m | 68.4 m | 113.8 m | 140.9 s |
+| Original | Train (1,617 orders) | 113,524 m | 70.2 m | 70.0 m | 111.4 m | 141.9 s |
+| Baseline | Train (1,617 orders) | 109,424 m (−3.6%) | 67.7 m | 67.6 m | 111.4 m | 139.4 s |
 
 ## 3D scene
 
@@ -167,3 +172,28 @@ in `src/store.test.ts`.
   `localStorage`, so they belong to **this browser only** (no server); if storage is blocked the game
   still works and keeps the result for the visit. Logic and storage failures are tested in
   `src/leaderboard.test.ts`.
+
+## Classifications
+
+Industry inventories classify items several ways. The problem statement asks us to arrange by **pick
+frequency**, so that classification drives the layout; the others are shown, and weight adds one
+placement rule. All three are computed in `preprocess.py` and stored in `products.json`.
+
+| Classification | How it is computed | Used for |
+|---|---|---|
+| **ABC by frequency** (`abcVelocity`) | Train-week pick rank within the top 100: top 20% **A**, next 30% **B**, last 50% **C** (slotting convention; Pareto 80/95% cut-offs would make 72 of 100 items A, because pick counts are fairly even) | **Slotting.** The 20 slots nearest the dock are zone A, the next 30 zone B, the last 50 zone C. Baseline fills each zone with its class. In Challenge, *Keep ABC zones* makes it a rule. |
+| **ABC by cost** (`abcCost`) | Train-week value moved (quantity × price), Pareto: classes cover the first 80%, next 15%, last 5% of value. A 54, B 28, C 18 | **Display only.** In industry this sets cycle-count frequency and security, not walking distance. It disagrees with frequency: 9 class-A fast movers are class C by cost (cheap items picked often), so arranging by cost would push them away from the dock. |
+| **Weight FL01–FL07** (`weightClass`, `weightKg`) | **Estimated.** The dataset has no weights: `weightKg` is a typical unit weight from the first matching keyword in the description (`WEIGHT_RULES`, e.g. doormat 2.5 kg, 3-tier cakestand 2.2 kg, hot water bottle 0.45 kg; 0.15 kg if nothing matches), banded as FL01 < 0.1 kg, FL02 < 0.25, FL03 < 0.5, FL04 < 1, FL05 < 2, FL06 < 4, FL07 ≥ 4 kg. Replace with real weights when available. | **One placement rule.** |
+
+**Placement rules** (`src/engine/rules.ts`), enforced for the built-in layouts, every swap and the
+optimizer:
+
+1. **Heavy items front only.** Items of class FL05 and above (≥ 1 kg estimated; 5 products) may only be
+   in the front 3 bays of an aisle, nearest the front cross aisle, so heavy loads are carried the
+   shortest way. Racks have one level here, so the usual "heavy items low" rule does not apply.
+   The threshold is FL05 because only 2 of these giftware items reach FL06.
+2. **ABC zones** (optional, Challenge only). Each product stays in its velocity zone. Heavy items are
+   exempt: safety comes first.
+
+A refused swap shows the reason and does not use a swap. Rack colours can show each classification,
+with the ABC zones or the heavy zone marked on the floor.

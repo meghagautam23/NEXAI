@@ -25,9 +25,9 @@ describe('leaderboard', () => {
   })
   it('survives corrupt data, invalid rows and storage that throws', () => {
     const s = memory()
-    s.setItem('warehouse-twin:leaderboard:v1', '{not json')
+    s.setItem('warehouse-twin:leaderboard:v2', '{not json')
     expect(readBoard(s)).toEqual([])
-    s.setItem('warehouse-twin:leaderboard:v1', JSON.stringify([{ name: 'x' }, entry('ok', 49000)]))
+    s.setItem('warehouse-twin:leaderboard:v2', JSON.stringify([{ name: 'x' }, entry('ok', 49000)]))
     expect(readBoard(s).map(e => e.name)).toEqual(['ok'])
     const broken = { getItem: () => { throw new Error('blocked') }, setItem: () => { throw new Error('blocked') } }
     expect(readBoard(broken)).toEqual([])

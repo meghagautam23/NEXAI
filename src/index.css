@@ -109,6 +109,9 @@ button.primary:disabled { background: #fff; color: var(--ink); }
 .result p { margin: 0 0 4px; }
 
 .row > .caption + .seg button { font-size: 12px; padding: 3px 8px; }
+select { font: inherit; flex: 1; min-width: 0; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+.check { display: flex; gap: 6px; align-items: flex-start; color: var(--muted); cursor: pointer; }
+.check input { flex: none; margin: 2px 0 0; }
 input {
   font: inherit; flex: 1; min-width: 0; padding: 4px 8px;
   border: 1px solid var(--line); border-radius: 6px; color: var(--ink);
