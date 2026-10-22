@@ -86,3 +86,33 @@ from a UK online gift retailer: invoice, product code, quantity, timestamp, pric
 | Picking policy | One trip per order: dock → slots → dock, nearest slot next |
 
 Walking follows aisle and cross-aisle centerlines only, never through racks (`src/engine/geometry.ts`).
+
+## Simulation engine
+
+`src/engine/` holds pure TypeScript with no 3D code, tested with Vitest.
+
+| File | Contents |
+|---|---|
+| `geometry.ts` | Slot coordinates, `leg()` (distance and waypoints of one move), the 101 × 101 distance table `D` |
+| `sim.ts` | `routeOrder()` (route for animation), `routeLength()` (fast distance), `scoreLayout()`, `makeEngine()` |
+| `layouts.ts` | `originalLayout()`, `baselineLayout()`, `samePickPoint()` |
+| `data.ts` | JSON types, `loadData()` for the browser, `partnersOf()` for bought-together hints |
+
+A layout is `assign: number[]`, mapping product id → slot id. `makeEngine(orders, assign)` caches each
+order's distance; `swapDelta(p1, p2)` rescores only the orders containing either product and returns the
+change plus `commit()`, without touching the layout until committed (about 7,800 swaps per second on the
+train orders). `stats()` returns total, mean, median and p90 distance per order, and average time per
+order (walking at 1 m/s plus 10 s per line).
+
+**Layouts.** *Original* is an assumed "as received" layout: products in stock-code order fill slots
+0–99 (the dataset has no shelf positions). *Baseline* puts the products with most train-week picks in
+the slots nearest the dock, ties broken by slot id and product id.
+
+### Results so far
+
+| Layout | Week | Total distance | Mean / order | Median | p90 | Avg time / order |
+|---|---|---:|---:|---:|---:|---:|
+| Original | Test (735 orders) | 51,844 m | 70.5 m | 70.0 m | 109.4 m | 144.0 s |
+| Baseline | Test (735 orders) | 49,414 m (−4.7%) | 67.2 m | 64.2 m | 113.8 m | 140.7 s |
+| Original | Train (1,617 orders) | 113,270 m | 70.0 m | 70.0 m | 109.4 m | 141.8 s |
+| Baseline | Train (1,617 orders) | 109,772 m (−3.1%) | 67.9 m | 68.4 m | 111.4 m | 139.6 s |
