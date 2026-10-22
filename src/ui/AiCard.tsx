@@ -1,7 +1,7 @@
-// ui/AiCard.tsx — AI Suggest: run the optimizer, explain its moves, and show the business case
+// ui/AiCard.tsx — AI Suggest drawer tab: run the optimizer, explain its moves, show the business case
 import { impact } from '../engine/insights';
 import { useShallow } from 'zustand/react/shallow';
-import { AI_BUDGET_MS, AI_PLANS, useStore, type AiPlan } from '../store';
+import { AI_ITERATIONS, AI_PLANS, useStore, type AiPlan } from '../store';
 import { fmtM, fmtPct } from './format';
 
 const fmtGBP = (x: number) => `£${Math.round(x).toLocaleString('en-GB')}`;
@@ -20,40 +20,36 @@ function Assumption({ label, value, unit, onChange, step = 1 }:
   );
 }
 
-export function AiCard() {
+export function AiPanel() {
   // Narrow subscription: the replay updates the store ~10 times a second
   const { ai, setAi, runAI, ref, data, assumptions, setAssumptions, loadLayout } = useStore(useShallow(s => ({
     ai: s.ai, setAi: s.setAi, runAI: s.runAI, ref: s.ref, data: s.data,
     assumptions: s.assumptions, setAssumptions: s.setAssumptions, loadLayout: s.loadLayout,
   })));
-  if (!ai.open || !ref || !data) return null;
+  if (!ref || !data) return null;
   const r = ai.result;
   const base = ref.test.baseline;
 
   return (
-    <div className="aicard">
-      <div className="row spread">
-        <h2>AI Suggest</h2>
-        <button className="icon" onClick={() => setAi({ open: false })} aria-label="Close AI Suggest">✕</button>
-      </div>
-      <p className="muted small">
-        Searches swaps from the Baseline for {AI_BUDGET_MS / 1000} s, learning only from 1–21 Nov, then is scored on
+    <>
+      <p className="intro">
+        Tries {AI_ITERATIONS.toLocaleString('en-GB')} swaps from the Baseline (a few seconds), learning only from 1–21 Nov, then is scored on
         22–30 Nov, which it never saw. Bought-together products are drawn next to each other; heavy items stay in
         front.
       </p>
 
-      <div className="row">
-        <span className="caption">Plan</span>
+      <div className="field">
+        <span className="label">Plan</span>
         <div className="seg">
           {(Object.keys(AI_PLANS) as AiPlan[]).map(k => (
             <button key={k} className={ai.plan === k ? 'on' : ''} disabled={ai.status === 'running'}
                     onClick={() => setAi({ plan: k })}>{AI_PLANS[k].label}</button>
           ))}
         </div>
-        <button className="primary" onClick={runAI} disabled={ai.status === 'running'}>
-          {ai.status === 'running' ? 'Running…' : r ? 'Run again' : 'Run'}
-        </button>
       </div>
+      <button className="primary block" onClick={runAI} disabled={ai.status === 'running'}>
+        {ai.status === 'running' ? 'Searching…' : r ? 'Run again' : 'Run AI Suggest'}
+      </button>
 
       {ai.status === 'running' && (
         <div>
@@ -63,7 +59,7 @@ export function AiCard() {
       )}
 
       {r && ai.status !== 'running' && result()}
-    </div>
+    </>
   );
 
   // A render helper, not a component, so it is not remounted on every render
@@ -77,7 +73,7 @@ export function AiCard() {
         <section>
           <div className="headline">
             <b className={saved > 0 ? 'good' : 'bad'}>{fmtPct(res.test.totalDist / base.totalDist - 1)}</b>
-            <span>walking vs Baseline on the unseen test week</span>
+            <span>walking vs Baseline<br />on the unseen test week</span>
           </div>
           <div className="caption">
             {fmtM(saved)} less over {res.testDays} picking days · train weeks {fmtPct(res.train.totalDist / ref!.train.baseline.totalDist - 1)}
@@ -87,31 +83,32 @@ export function AiCard() {
         </section>
 
         <section>
-          <div className="caption">Re-slotting plan: {moves} products move. Top {Math.min(TOP_MOVES, moves)}, by train-week metres each saves:</div>
+          <h3>Why these moves <span className="muted">· {moves} products move; top {Math.min(TOP_MOVES, moves)} shown</span></h3>
           <ol className="moves">
             {res.moves.slice(0, TOP_MOVES).map(m => (
               <li key={m.product}>
-                <b>{data!.products[m.product].name}</b> <span className="muted">slot {m.from} → {m.to}</span>
-                <span className="good"> {fmtM(Math.max(0, m.saving))}</span>
-                <div className="muted small">{m.reason}</div>
+                <div className="move-head">
+                  <b>{data!.products[m.product].name}</b>
+                  <span className="good">−{fmtM(Math.max(0, m.saving))}</span>
+                </div>
+                <div className="muted small">Slot {m.from} → {m.to}. {m.reason}</div>
               </li>
             ))}
           </ol>
         </section>
 
         <section>
-          <div className="caption">Business case for this pick zone (walking time only)</div>
-          <div className="row spread">
-            <div><span className="caption">Saved / day</span><b className="num">{fmtH(imp.hoursPerDay)}</b></div>
-            <div><span className="caption">Saved / year</span><b className="num">{fmtH(imp.hoursPerYear)} · {fmtGBP(imp.poundsPerYear)}</b></div>
-          </div>
-          <div className="row spread">
-            <div><span className="caption">Re-slotting</span><b className="num">{fmtH(imp.reslotHours)} · {fmtGBP(imp.reslotCost)}</b></div>
-            <div><span className="caption">Pays back in</span>
-              <b className="num">{Number.isFinite(imp.paybackDays) ? `${Math.ceil(imp.paybackDays)} picking days` : 'never'}</b></div>
+          <h3>Business case <span className="muted">· this pick zone, walking time only</span></h3>
+          <div className="kpis">
+            <div><span className="label">Saved per day</span><b>{fmtH(imp.hoursPerDay)}</b></div>
+            <div><span className="label">Saved per year</span><b>{fmtH(imp.hoursPerYear)}</b><span className="muted">{fmtGBP(imp.poundsPerYear)}</span></div>
+            <div><span className="label">Re-slotting effort</span><b>{fmtH(imp.reslotHours)}</b><span className="muted">{fmtGBP(imp.reslotCost)}</span></div>
+            <div><span className="label">Pays back in</span>
+              <b>{Number.isFinite(imp.paybackDays) ? `${Math.ceil(imp.paybackDays)} days` : 'never'}</b>
+              <span className="muted">picking days</span></div>
           </div>
           <details>
-            <summary className="caption">Assumptions (edit)</summary>
+            <summary>Assumptions (edit)</summary>
             <Assumption label="Picker cost" value={assumptions.costPerHour} unit="£ / hour"
                         onChange={v => setAssumptions({ costPerHour: v })} step={0.5} />
             <Assumption label="Re-slot one product" value={assumptions.minutesPerMove} unit="minutes"
@@ -123,7 +120,7 @@ export function AiCard() {
           </details>
         </section>
 
-        <button onClick={() => loadLayout(res.assign)}>Open AI layout in Sandbox</button>
+        <button className="block" onClick={() => loadLayout(res.assign)}>Open AI layout in Sandbox</button>
       </>
     );
   }

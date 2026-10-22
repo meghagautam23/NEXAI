@@ -67,7 +67,9 @@ export function optimize(input: OptimizeInput): OptimizeResult {
     } else p2 = Math.floor(rnd() * n);
     if (p1 === p2 || swapProblem(products, eng.productAt, eng.assign[p1], eng.assign[p2], rules)) continue;
 
-    const frac = budgetMs !== undefined ? (performance.now() - t0) / budgetMs : it / iterations;
+    // Cooling follows whichever limit is closer: iterations, or the time cap
+    const frac = Math.max(Number.isFinite(iterations) ? it / iterations : 0,
+                          budgetMs !== undefined ? (performance.now() - t0) / budgetMs : 0);
     const T = T_START * Math.pow(T_END / T_START, Math.min(1, frac));
     const s = eng.swapDelta(p1, p2);
     const a1 = eng.assign[p1], a2 = eng.assign[p2];

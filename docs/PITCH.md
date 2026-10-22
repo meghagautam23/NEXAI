@@ -12,7 +12,7 @@ which no layout or optimizer saw while being built.
 | 3 | **Real data, honest split** | Online Retail II, November 2011. Cleaning table (541,910 rows → 527,725). Train 1–21 Nov / test 22–30 Nov. Top 100 products by pick frequency. | "Everything is tuned on three weeks and scored on the fourth, which it never saw." |
 | 4 | **The twin** | 3D screenshot with route line; walking only along aisles; 100 slots, dock, 1 m/s, 10 s per pick. | "The animated walk and the score come from one function, and a test proves they match." |
 | 5 | **Surprise: the textbook rule barely helps** | Original 51,884 m → Baseline 49,597 m (−4.4%). Order-size breakdown: a fifth saved on 1-line orders, nothing on 16+ lines. | "This retailer serves wholesalers. Big orders cross the whole floor whatever you do with fast movers." |
-| 6 | **AI Suggest: put together what is bought together** | −12.8% vs Baseline on the unseen week. One explained move ("Now 1.2 m from Hot Water Bottle I Am So Poorly, was 16.6 m: bought together in 53 orders"). 45,000 swaps in 5 s, in the browser. | "It explains every move, and it never sees the week it is scored on." |
+| 6 | **AI Suggest: put together what is bought together** | −12.8% vs Baseline on the unseen week. One explained move ("Now 1.2 m from Hot Water Bottle I Am So Poorly, was 16.6 m: bought together in 53 orders"). 45,000 swaps in a few seconds, in the browser. | "It explains every move, and it never sees the week it is scored on." |
 | 7 | **It pays for itself** | 67 products to move, ~11 h of re-slotting, payback ~51 picking days. Plans: Max saving / Balanced / Fewer moves. | "Real warehouses don't move everything. Our optimizer charges for every move, so it picks the moves that pay." |
 | 8 | **Batching: the biggest lever** | Table: single vs 4-order carts. Proximity carts −60%; AI layout + proximity carts −64.8% vs Original. | "Batching cuts trips; slotting cuts each trip. They add up: with our layout the carts walk another 8.8% less." |
 | 9 | **Industry rules built in** | ABC by frequency (drives zones), ABC by cost (display: 9 fast movers are cost class C), FL01–FL07 weight (estimated; heavy items front bays only). | "We arrange by frequency as the brief asks, and respect safety rules a real WMS would enforce." |
@@ -20,7 +20,7 @@ which no layout or optimizer saw while being built.
 
 ## 2-minute live demo script
 
-**Live numbers vary a little** (the optimizer has a 5-second time budget and a random seed); slides use the reproducible seed-1 figures.
+**Live numbers vary a little** (each run uses a new random seed); slides use the reproducible seed-1 figures.
 
 **Before you start:** the site is open and loaded (data loaded, picker walking), Challenge mode,
 Racks = Popularity, speed 10×, AI Suggest not yet run, no panels open. Browser zoom 100%, full screen.
@@ -31,7 +31,7 @@ Racks = Popularity, speed 10×, AI Suggest not yet run, no panels open. Browser 
 | 0:15 | Point at the scoreboard: Original vs Baseline. | "Every number is the same 735 orders from a week the layouts never saw. The textbook rule, fast movers next to the dock, saves only 4.4%: wholesale orders cross the whole floor anyway." |
 | 0:35 | Click a dark-blue rack near the dock. Purple arcs appear. Hover a rack next to one arc's end; read the tooltip. Click to swap. | "Select a product and the arcs show what's bought with it. Hovering previews the saving on past orders. Swap." |
 | 0:55 | Try to move a heavy (dark brown in weight view) item to the back, or just say it. | "Heavy items have to stay up front: the game refuses unsafe swaps and says why." |
-| 1:05 | Click **AI Suggest**, then **Run**. While it runs (5 s): | "AI Suggest searches 45,000 swaps in the browser, learning only from the first three weeks." |
+| 1:05 | Click **AI Suggest**, then **Run**. While it runs (a few seconds): | "AI Suggest searches 45,000 swaps in the browser, learning only from the first three weeks." |
 | 1:12 | Read the headline and the first move (live runs land around −11% to −14%). | "About 12% less walking on the unseen week. And it explains itself: this bottle now sits next to the one it's bought with in 53 orders." |
 | 1:25 | Scroll to the business case and read the three numbers. | "About 60 products to move, around 10 hours of work, paid back in under two months of picking days." |
 | 1:35 | Click **Batch picking**. | "Carts of four orders cut walking by 60%, and with our layout the carts walk another 9% less." |

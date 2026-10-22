@@ -225,7 +225,7 @@ with the ABC zones or the heavy zone marked on the floor.
 
 `src/engine/optimizer.ts`, run in a Web Worker (`optimizer.worker.ts`) so the scene never freezes.
 
-- **Search:** simulated annealing over product swaps for 5 seconds (about 45,000 swaps), starting from the
+- **Search:** simulated annealing over 45,000 product swaps (a few seconds; a 15-second cap guards slow machines), starting from the
   Baseline. 70% of proposals move a product next to one of its top-5 bought-together partners; the rest
   are random. Temperature falls from 25 m to 0.3 m. Every proposal is checked against the placement
   rules (heavy items front; ABC zones if on).
@@ -246,7 +246,7 @@ with the ABC zones or the heavy zone marked on the floor.
 Reference runs (45,000 swaps, seeds 1–3, test week vs Baseline): *Max saving* −11.2% to −12.8% moving
 93 products; *Balanced* −12.3% to −13.2% moving 59–67; *Fewer moves* −7.6% to −9.5% moving 36–48.
 Limiting moves does not cost much on the unseen week: it also stops the search overfitting the train
-weeks. A browser run uses a time budget and a random seed, so its numbers vary slightly. Tested in
+weeks. A browser run uses a random seed, so its numbers vary slightly. Tested in
 `src/engine/optimizer.test.ts`.
 
 ## Batch picking

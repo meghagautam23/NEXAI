@@ -8,10 +8,10 @@ import { fmtM, fmtPct, fmtTime } from './format';
 const SIZES = [2, 3, 4, 5];
 const POLICIES: [BatchPolicy, string][] = [['fcfs', 'First come'], ['proximity', 'Proximity']];
 
-export function BatchPanel() {
-  const { open, openPanel, batch, setBatch, replayBatches, setReplayBatches, ref, data, assign, ai, mode, submitted, layouts } =
+export function BatchBody() {
+  const { batch, setBatch, replayBatches, setReplayBatches, ref, data, assign, ai, mode, submitted, layouts } =
     useStore(useShallow(s => ({
-      open: s.batchOpen, openPanel: s.openPanel, batch: s.batch, setBatch: s.setBatch,
+      batch: s.batch, setBatch: s.setBatch,
       replayBatches: s.replayBatches, setReplayBatches: s.setReplayBatches,
       ref: s.ref, data: s.data, assign: s.assign, ai: s.ai.result, mode: s.mode, submitted: s.submitted,
       layouts: s.refLayouts,
@@ -19,7 +19,7 @@ export function BatchPanel() {
 
   // Every layout, single-order picking and both batching policies (about 20 ms each)
   const rows = useMemo(() => {
-    if (!open || !data || !layouts) return [];
+    if (!data || !layouts) return [];
     const test = data.orders.test;
     const list: [string, number[]][] = [['Original', layouts.original], ['Baseline', layouts.baseline]];
     if (mode === 'sandbox' || submitted) list.push(['Yours', assign]);
@@ -29,25 +29,21 @@ export function BatchPanel() {
       const by = (policy: BatchPolicy): BatchStats => scoreBatching(test, a, { ...batch, policy });
       return { name, single, fcfs: by('fcfs'), proximity: by('proximity') };
     });
-  }, [open, data, layouts, mode, submitted, assign, ai, batch]);
+  }, [data, layouts, mode, submitted, assign, ai, batch]);
 
-  if (!open || !ref || !data) return null;
+  if (!ref || !data) return null;
   const orig = rows[0]?.single.totalDist ?? 1;
 
   return (
-    <div className="aicard wide">
-      <div className="row spread">
-        <h2>Batch picking</h2>
-        <button className="icon" onClick={() => openPanel(null)} aria-label="Close batch picking">✕</button>
-      </div>
-      <p className="muted small">
+    <>
+      <p className="intro">
         One trip serves several orders on a cart: the picker visits every slot of the batch once, then sorts at
         the dock. Batches stay within a picking day and the cart's line capacity; a bigger order goes alone.
         <b> Proximity</b> seeds a cart with the earliest order, then adds the orders that add the least walking.
       </p>
 
-      <div className="row">
-        <span className="caption">Cart</span>
+      <div className="field">
+        <span className="label">Cart</span>
         <div className="seg">
           {SIZES.map(k => (
             <button key={k} className={batch.size === k ? 'on' : ''} onClick={() => setBatch({ size: k })}>{k} orders</button>
@@ -60,7 +56,7 @@ export function BatchPanel() {
                onChange={e => { const v = Number(e.target.value); if (v >= 5) setBatch({ maxLines: v }); }} />
       </label>
 
-      <table className="batch">
+      <table className="data">
         <thead>
           <tr><th /><th>Single order</th>{POLICIES.map(([k, l]) => <th key={k}>{l}</th>)}<th>Trips</th></tr>
         </thead>
@@ -90,6 +86,6 @@ export function BatchPanel() {
         <input type="checkbox" checked={replayBatches} onChange={e => setReplayBatches(e.target.checked)} />
         Replay batches in 3D ({batch.size}-order carts, proximity)
       </label>
-    </div>
+    </>
   );
 }

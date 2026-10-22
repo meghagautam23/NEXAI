@@ -2,20 +2,15 @@
 import { useStore } from '../store';
 import { fmtM, fmtPct } from './format';
 
-export function Leaderboard() {
-  const { board, boardOpen, setBoardOpen, loadLayout } = useStore();
-  if (!boardOpen) return null;
+export function LeaderboardBody() {
+  const { board, loadLayout } = useStore();
   return (
-    <div className="leaderboard">
-      <div className="row spread">
-        <h2>Leaderboard</h2>
-        <button className="icon" onClick={() => setBoardOpen(false)} aria-label="Close leaderboard">✕</button>
-      </div>
-      <div className="caption">Challenge results on the test week · saved in this browser only</div>
+    <>
+      <p className="intro">Challenge results on the unseen test week, best first. Saved in this browser only.</p>
       {board.length === 0 ? (
         <p className="muted">No results yet. Finish a Challenge and save your layout.</p>
       ) : (
-        <table>
+        <table className="data">
           <thead><tr><th>#</th><th>Name</th><th>Walking</th><th>vs Baseline</th><th>Swaps</th><th /></tr></thead>
           <tbody>
             {board.slice(0, 10).map((e, i) => (
@@ -31,6 +26,6 @@ export function Leaderboard() {
           </tbody>
         </table>
       )}
-    </div>
+    </>
   );
 }

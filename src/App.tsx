@@ -2,21 +2,23 @@ import { useEffect, useState } from 'react'
 import { loadData } from './engine/data'
 import { Scene } from './scene/Scene'
 import { useStore } from './store'
-import { Hud } from './ui/Hud'
+import { Drawer } from './ui/Drawer'
 import { ResultCard, Toast, Tooltip } from './ui/Overlays'
-import { AiCard } from './ui/AiCard'
-import { BatchPanel } from './ui/BatchPanel'
-import { Leaderboard } from './ui/Leaderboard'
+import { PlayCard } from './ui/PlayCard'
+import { ReplayBar } from './ui/ReplayBar'
 import { Scoreboard } from './ui/Scoreboard'
+import { TopBar } from './ui/TopBar'
 
 function App() {
   const ready = useStore(s => s.data !== null)
+  const drawerOpen = useStore(s => s.ai.open || s.batchOpen || s.boardOpen)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadData().then(useStore.getState().init).catch(e => setError(String(e)))
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') useStore.setState({ selected: null, preview: null })
+      if (e.target instanceof HTMLInputElement) return
+      if (e.key === 'Escape') useStore.setState({ selected: null, preview: null, blocked: null })
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') useStore.getState().undo()
     }
     window.addEventListener('keydown', onKey)
@@ -24,18 +26,18 @@ function App() {
   }, [])
 
   return (
-    <div className="app">
-      <Scene />
+    <div className={`app${drawerOpen ? ' drawer-open' : ''}`}>
+      <div className="stage"><Scene /></div>
       {ready ? (
         <>
-          <Hud />
+          <TopBar />
+          <PlayCard />
+          <ReplayBar />
           <Scoreboard />
+          <Drawer />
           <Tooltip />
           <Toast />
           <ResultCard />
-          <AiCard />
-          <BatchPanel />
-          <Leaderboard />
         </>
       ) : <div className="loading">{error ?? 'Loading orders…'}</div>}
     </div>

@@ -42,7 +42,7 @@ describe('optimize', () => {
   it('generalises: the train-tuned layout also beats the Baseline on the unseen test week', () => {
     const long = run({ iterations: 20000 })
     expect(scoreLayout(orders.test, long.assign).totalDist).toBeLessThan(scoreLayout(orders.test, base).totalDist)
-  })
+  }, 30000) // a longer search; can pass Vitest's 5 s default on a busy machine
 })
 
 describe('prune', () => {

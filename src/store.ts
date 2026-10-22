@@ -23,7 +23,9 @@ export const AI_PLANS: Record<AiPlan, { label: string; penalty: number }> = {
   balanced: { label: 'Balanced', penalty: 100 },
   few: { label: 'Fewer moves', penalty: 200 },
 };
-export const AI_BUDGET_MS = 5000;
+// A fixed number of swaps, so every run searches equally hard whatever the laptop; the time cap is a safety net
+export const AI_ITERATIONS = 45000;
+export const AI_MAX_MS = 15000;
 export type AiResult = {
   assign: number[]; train: Stats; test: Stats; moves: Move[]; iterations: number;
   plan: AiPlan; abcZones: boolean; trainDays: number; testDays: number;
@@ -258,7 +260,7 @@ export const useStore = create<State>()((set, get) => {
       const abcZones = rulesFor(get()).abcZones, plan = ai.plan;
       const request: WorkerRequest = {
         products: data.products, orders: data.orders.train, partners: partners5(data), start: baselineLayout(data.products),
-        rules: { abcZones }, budgetMs: AI_BUDGET_MS, movePenalty: AI_PLANS[plan].penalty, seed: Date.now() % 100000,
+        rules: { abcZones }, iterations: AI_ITERATIONS, budgetMs: AI_MAX_MS, movePenalty: AI_PLANS[plan].penalty, seed: Date.now() % 100000,
       };
       set({ ai: { ...ai, status: 'running', progress: 0, trainGain: 0 } });
       get().openPanel('ai');
@@ -268,7 +270,7 @@ export const useStore = create<State>()((set, get) => {
       worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
         const m = e.data;
         if (m.type === 'progress')
-          set(s => ({ ai: { ...s.ai, progress: m.progress.elapsedMs / AI_BUDGET_MS, trainGain: m.progress.best / m.progress.start - 1 } }));
+          set(s => ({ ai: { ...s.ai, progress: m.progress.iterations / AI_ITERATIONS, trainGain: m.progress.best / m.progress.start - 1 } }));
         else { worker?.terminate(); worker = null; get().finishAI(m.result, plan, abcZones); }
       };
       worker.postMessage(request);
