@@ -36,9 +36,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: preprocess.py compiles
-        run: |
-          if [ -f preprocess.py ]; then python -m py_compile preprocess.py; else echo "::notice::preprocess.py not committed yet"; fi
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Data rules on a hand-made sheet (tests/test_preprocess.py)
+        run: python -m pytest -q tests
       - name: Validate public/data JSON (schemas, train/test split, train-only top 100 and affinity)
         run: python scripts/validate_data.py public/data
 

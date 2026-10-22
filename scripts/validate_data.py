@@ -35,14 +35,17 @@ products = json.loads((DATA / "products.json").read_text())
 orders = json.loads((DATA / "orders.json").read_text())
 affinity = json.loads((DATA / "affinity.json").read_text())
 
-# products.json: [{ id, code, name, picksTrain }], 100 entries, id = 0..99, ranked by train picks
+# products.json: [{ id, code, name, picksTrain, picksMonth }], 100 entries, id = 0..99, ranked by train picks
 check(isinstance(products, list) and len(products) == 100, "products.json must hold exactly 100 products")
 for i, p in enumerate(products):
-    check(set(p) == {"id", "code", "name", "picksTrain"}, f"product {i}: keys must be id, code, name, picksTrain")
+    check(set(p) == {"id", "code", "name", "picksTrain", "picksMonth"},
+          f"product {i}: keys must be id, code, name, picksTrain, picksMonth")
     check(p.get("id") == i, f"product {i}: id must equal its index (0..99)")
     check(isinstance(p.get("code"), str) and CODE.match(p["code"]), f"product {i}: bad StockCode {p.get('code')!r}")
     check(isinstance(p.get("name"), str), f"product {i}: name must be a string")
     check(isinstance(p.get("picksTrain"), int) and p["picksTrain"] > 0, f"product {i}: picksTrain must be a positive int")
+    check(isinstance(p.get("picksMonth"), int) and p["picksMonth"] >= p.get("picksTrain", 0),
+          f"product {i}: picksMonth must be an int >= picksTrain")
 check(len({p.get("code") for p in products}) == len(products), "product codes must be unique")
 picks = [p.get("picksTrain", 0) for p in products]
 check(picks == sorted(picks, reverse=True), "products must be ordered by picksTrain, descending")
@@ -79,6 +82,11 @@ lines_per_p = Counter(l["p"] for o in train for l in o["lines"])
 for p in products:
     if not check(lines_per_p[p["id"]] == p["picksTrain"],
                  f"product {p['id']}: picksTrain={p['picksTrain']} but train has {lines_per_p[p['id']]} lines"):
+        break
+month_lines = lines_per_p + Counter(l["p"] for o in orders.get("test", []) for l in o["lines"])
+for p in products:
+    if not check(month_lines[p["id"]] == p["picksMonth"],
+                 f"product {p['id']}: picksMonth={p['picksMonth']} but the month has {month_lines[p['id']]} lines"):
         break
 
 # affinity.json: [[a, b, n]], top 500 pairs, computed from TRAIN only

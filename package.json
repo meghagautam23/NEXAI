@@ -9,6 +9,9 @@
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "test": "vitest run",
+    "data:fetch": "python3 scripts/fetch_data.py",
+    "data": "python3 preprocess.py && python3 scripts/validate_data.py public/data",
+    "test:data": "python3 -m pytest -q tests",
     "validate:data": "python3 scripts/validate_data.py",
     "preview": "vite preview"
   },

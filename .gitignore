@@ -31,3 +31,7 @@ online_retail_II.xlsx
 retail.parquet
 __pycache__/
 .env*
+
+# Python virtual environment
+.venv/
+.pytest_cache/
