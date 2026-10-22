@@ -345,7 +345,7 @@ Yours, AI Suggest) under each policy. Sorting time at the dock is not included. 
 - `scripts/validate_data.py` checks the committed JSON against every data rule.
 - **CI** (`.github/workflows/ci-cd.yml`): data checks, lint, typecheck, tests and build on every push and
   pull request. The Vercel deploy job needs `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`
-  repository secrets; without them it fails while the other jobs still pass.
+  repository secrets; without them it is skipped with a notice and the run still passes.
 
 ## Assumptions and limitations
 

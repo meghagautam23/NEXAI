@@ -82,11 +82,11 @@ jobs:
       - name: Check Vercel secrets
         id: secrets
         run: |
+          # No secrets (a fork, or a copy of the repo without Vercel set up): skip the deploy, don't fail the run.
+          # Add VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID repository secrets to deploy.
           if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
-              echo "::notice::Fork PR - secrets unavailable, skipping preview deploy."; echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
-            fi
-            echo "::error::Set VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID repository secrets."; exit 1
+            echo "::notice::Vercel secrets not set - skipping deploy. Add VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID repository secrets to deploy."
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
           echo "ok=true" >> "$GITHUB_OUTPUT"
 
