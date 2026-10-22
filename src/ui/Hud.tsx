@@ -11,7 +11,7 @@ const COLORS: [RackColor, string][] = [
 
 export function Hud() {
   const s = useStore();
-  const { mode, history, submitted, yours, ref, hud, sample } = s;
+  const { mode, history, submitted, yours, ref, hud } = s;
   const used = history.length;
   // Planning score: the player's layout vs Baseline on the train weeks, updated live
   const planning = yours && ref ? yours.train.totalDist / ref.train.baseline.totalDist - 1 : 0;
@@ -74,9 +74,15 @@ export function Hud() {
             ))}
           </div>
         </div>
-        <div className="caption">Replay: {sample.length} sample orders from the test week</div>
+        <div className="caption">
+          {s.replayBatches
+            ? `Replay: ${hud.count} sample batches (carts of up to ${s.batch.size} orders) from the test week`
+            : `Replay: ${hud.count} sample orders from the test week`}
+        </div>
         <div className="row spread">
-          <div><span className="caption">Order</span><b className="num">{hud.index + 1}/{sample.length}</b></div>
+          {s.replayBatches
+            ? <div><span className="caption">Batch</span><b className="num">{hud.index + 1}/{hud.count} · {hud.orders} ord.</b></div>
+            : <div><span className="caption">Order</span><b className="num">{hud.index + 1}/{hud.count}</b></div>}
           <div><span className="caption">Lines</span><b className="num">{hud.lines}</b></div>
           <div><span className="caption">Distance</span><b className="num">{fmtM(hud.dist, 1)}</b></div>
           <div><span className="caption">Time</span><b className="num">{fmtTime(hud.time)}</b></div>
@@ -116,8 +122,9 @@ export function Hud() {
       </section>
 
       <div className="row">
-        <button className="primary grow" onClick={() => s.setAi({ open: !s.ai.open })}>AI Suggest</button>
-        <button className="grow" onClick={() => s.setBoardOpen(!s.boardOpen)}>Leaderboard ({s.board.length})</button>
+        <button className="primary grow" onClick={() => s.openPanel(s.ai.open ? null : 'ai')}>AI Suggest</button>
+        <button className="grow" onClick={() => s.openPanel(s.batchOpen ? null : 'batch')}>Batch picking</button>
+        <button className="grow" onClick={() => s.openPanel(s.boardOpen ? null : 'board')}>Leaderboard ({s.board.length})</button>
       </div>
     </div>
   );

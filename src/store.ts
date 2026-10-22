@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { partnersOf, type Data } from './engine/data';
 import { baselineLayout, originalLayout, samePickPoint } from './engine/layouts';
 import { sampleOrders } from './engine/replay';
+import { DEFAULT_BATCH, type BatchOptions } from './engine/batching';
 import { makeEngine, scoreLayout, type Engine, type Stats } from './engine/sim';
 import { addEntry, readBoard, type Entry } from './leaderboard';
 import { swapProblem } from './engine/rules';
@@ -34,13 +35,17 @@ export const CHALLENGE_SWAPS = 10;
 export const SPEEDS = [1, 10, 50] as const;
 
 // Live replay readout, pushed by the scene a few times per second
-export type ReplayHud = { index: number; orderId: string; lines: number; dist: number; time: number; done: boolean };
+export type ReplayHud = {
+  index: number; count: number; orders: number; orderId: string; lines: number; dist: number; time: number; done: boolean;
+};
+export type Panel = 'ai' | 'board' | 'batch';
 type Ref = { original: Stats; baseline: Stats };
 
 type State = {
   data: Data | null;
   partners: number[][];        // top-3 bought-together partners per product
   ref: { train: Ref; test: Ref } | null;
+  refLayouts: { original: number[]; baseline: number[] } | null;
 
   mode: Mode;
   assign: number[];            // the player's layout, productId -> slotId
@@ -60,6 +65,9 @@ type State = {
   visits: number[];            // picks per slot during the current replay (heatmap)
   board: Entry[];              // leaderboard, this browser only
   boardOpen: boolean;
+  batchOpen: boolean;
+  batch: BatchOptions;          // cart for batch picking
+  replayBatches: boolean;       // the 3D replay walks batches instead of single orders
   savedRound: boolean;         // this Challenge result is already on the board
 
   sample: number[];
@@ -85,6 +93,9 @@ type State = {
   saveResult: (name: string) => void;
   loadLayout: (assign: number[]) => void;
   setBoardOpen: (open: boolean) => void;
+  openPanel: (panel: Panel | null) => void; // the top-right panels share one place
+  setBatch: (patch: Partial<BatchOptions>) => void;
+  setReplayBatches: (on: boolean) => void;
   setAbcZones: (on: boolean) => void;
 
   ai: AiState;
@@ -108,7 +119,7 @@ const partners5 = (data: Data) => partnersOf(data.affinity, 5);
 const rulesFor = (s: Pick<State, 'mode' | 'abcZones'>) => ({ abcZones: s.mode === 'challenge' && s.abcZones });
 
 const noVisits = () => Array<number>(100).fill(0);
-const emptyHud: ReplayHud = { index: 0, orderId: '', lines: 0, dist: 0, time: 0, done: false };
+const emptyHud: ReplayHud = { index: 0, count: 0, orders: 0, orderId: '', lines: 0, dist: 0, time: 0, done: false };
 const startLayout = (data: Data, mode: Mode) =>
   mode === 'challenge' ? baselineLayout(data.products) : originalLayout(data.products);
 
@@ -138,12 +149,13 @@ export const useStore = create<State>()((set, get) => {
   };
 
   return {
-    data: null, partners: [], ref: null,
+    data: null, partners: [], ref: null, refLayouts: null,
     mode: 'challenge', assign: [], productAt: [], yours: null, history: [], submitted: false, abcZones: false,
     selected: null, hover: null, preview: null, blocked: null, toast: null,
     ai: { status: 'idle', plan: 'balanced', open: false, progress: 0, trainGain: 0, result: null },
     assumptions: DEFAULT_ASSUMPTIONS,
     rackColor: 'popularity', visits: noVisits(), board: readBoard(), boardOpen: false, savedRound: false,
+    batchOpen: false, batch: DEFAULT_BATCH, replayBatches: false,
     sample: [], playing: true, speed: 10, replayKey: 0, routeSlots: [], picked: 0, hud: emptyHud,
 
     init: data => {
@@ -152,7 +164,7 @@ export const useStore = create<State>()((set, get) => {
         train: { original: scoreLayout(data.orders.train, o), baseline: scoreLayout(data.orders.train, b) },
         test: { original: scoreLayout(data.orders.test, o), baseline: scoreLayout(data.orders.test, b) },
       };
-      set({ data, ref, partners: partnersOf(data.affinity, 3), sample: sampleOrders(data.orders.test) });
+      set({ data, ref, refLayouts: { original: o, baseline: b }, partners: partnersOf(data.affinity, 3), sample: sampleOrders(data.orders.test) });
       load(startLayout(data, get().mode));
     },
 
@@ -222,13 +234,19 @@ export const useStore = create<State>()((set, get) => {
         vsBaseline: total / ref.test.baseline.totalDist - 1, swaps: history.length,
         at: new Date().toISOString(), assign: [...assign],
       });
-      set({ board, savedRound: true, boardOpen: true });
+      set({ board, savedRound: true });
+      get().openPanel('board');
       if (!saved) notify('Leaderboard storage is unavailable in this browser; kept for this visit only.');
     },
 
     // Open a saved layout in Sandbox, where every score is shown live
     loadLayout: assign => { if (get().data) load(assign, { mode: 'sandbox', boardOpen: false }); },
-    setBoardOpen: boardOpen => set({ boardOpen }),
+    setBoardOpen: boardOpen => get().openPanel(boardOpen ? 'board' : null),
+    openPanel: panel => set(s => ({
+      boardOpen: panel === 'board', batchOpen: panel === 'batch', ai: { ...s.ai, open: panel === 'ai' },
+    })),
+    setBatch: patch => set(s => ({ batch: { ...s.batch, ...patch }, replayKey: s.replayBatches ? s.replayKey + 1 : s.replayKey })),
+    setReplayBatches: replayBatches => set(s => ({ replayBatches, replayKey: s.replayKey + 1, playing: true })),
     // Changing the rules starts a fresh round, so a result is always played under one rule set
     setAbcZones: abcZones => { set(s => ({ abcZones, ai: { ...s.ai, result: null, status: 'idle' } })); get().reset(); },
 
@@ -242,7 +260,8 @@ export const useStore = create<State>()((set, get) => {
         products: data.products, orders: data.orders.train, partners: partners5(data), start: baselineLayout(data.products),
         rules: { abcZones }, budgetMs: AI_BUDGET_MS, movePenalty: AI_PLANS[plan].penalty, seed: Date.now() % 100000,
       };
-      set({ ai: { ...ai, status: 'running', open: true, progress: 0, trainGain: 0 } });
+      set({ ai: { ...ai, status: 'running', progress: 0, trainGain: 0 } });
+      get().openPanel('ai');
       if (typeof Worker === 'undefined') return get().finishAI(optimize(request), plan, abcZones);
       worker?.terminate();
       worker = new Worker(new URL('./engine/optimizer.worker.ts', import.meta.url), { type: 'module' });

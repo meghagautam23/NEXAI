@@ -224,3 +224,30 @@ Typical results over seeds (test week vs Baseline): *Max saving* −12% moving ~
 −11% to −14% moving ~63; *Fewer moves* −6% to −9% moving ~30–43. One browser run (Balanced): **−11.6%**,
 5,748 m less over 8 picking days, 62 moves, about 12 minutes of walking saved a day, 10.3 hours of
 re-slotting, paid back in 52 picking days. Tested in `src/engine/optimizer.test.ts`.
+
+## Batch picking
+
+`src/engine/batching.ts`, shown in the **Batch picking** panel. One trip serves several orders on a
+cart: the picker visits every slot of the batch once (nearest-neighbour route as usual) and sorts the
+orders at the dock.
+
+- **Cart:** 2–5 orders and at most 40 lines (editable). An order bigger than the cart goes on its own.
+  Batches never span picking days (each day is one wave).
+- **First come:** orders join the cart in arrival order.
+- **Proximity** (seed batching): the earliest waiting order seeds a cart; then the waiting order that
+  adds the least walking joins, until the cart is full. It depends on the layout, so it rewards good
+  slotting.
+
+Test week, Baseline layout (single-order picking: 49,597 m, 735 trips):
+
+| Cart | First come | Proximity |
+|---|---:|---:|
+| 2 orders | 35,681 m (−28.1%) | 31,208 m (−37.1%) |
+| 3 orders | 28,199 m (−43.1%) | 23,908 m (−51.8%) |
+| **4 orders** | 24,015 m (−51.6%) | **20,025 m (−59.6%), 213 trips** |
+| 5 orders | 21,598 m (−56.5%) | 18,272 m (−63.2%) |
+
+Average time per order falls from 2:20 to 1:40 with 4-order proximity carts. Batching saves far more
+walking than slotting alone, and the two add up: the panel compares every layout (Original, Baseline,
+Yours, AI Suggest) under each policy. Sorting time at the dock is not included. Tick **Replay batches in
+3D** to watch the picker walk 10 sample carts. Tested in `src/engine/batching.test.ts`.

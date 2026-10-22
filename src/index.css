@@ -153,6 +153,13 @@ button.link { border: none; background: none; color: var(--accent); padding: 0; 
 .assume input { flex: none; width: 80px; }
 details summary { cursor: pointer; margin-top: 6px; }
 
+.aicard.wide { width: 500px; }
+.hud .row button.grow { font-size: 12px; padding: 5px 4px; }
+table.batch { border-collapse: collapse; font-variant-numeric: tabular-nums; width: 100%; }
+table.batch th, table.batch td { padding: 4px 6px; text-align: right; white-space: nowrap; vertical-align: top; }
+table.batch thead th { color: var(--muted); font-weight: 500; font-size: 12px; border-bottom: 1px solid var(--line); }
+table.batch tbody th { text-align: left; }
+
 @media (max-width: 760px) {
   .hud { width: auto; right: 16px; max-height: 55vh; overflow-y: auto; }
   .board { left: 16px; }

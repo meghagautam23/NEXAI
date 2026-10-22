@@ -50,8 +50,11 @@ export function sampleTimeline(tl: Timeline, t: number): Sample {
   return { x: dock.x, y: dock.y, dist: tl.dist, picked, picking: false, heading: null };
 }
 
-// Evenly spaced, deterministic sample of orders for the on-screen replay
-export function sampleOrders(orders: Order[], k = 25): number[] {
-  const step = orders.length / k;
-  return Array.from({ length: Math.min(k, orders.length) }, (_, i) => Math.floor(i * step));
+// k evenly spaced, deterministic indices out of n
+export function evenly(n: number, k: number): number[] {
+  const step = n / k;
+  return Array.from({ length: Math.min(k, n) }, (_, i) => Math.floor(i * step));
 }
+
+// Evenly spaced sample of orders for the on-screen replay
+export const sampleOrders = (orders: Order[], k = 25) => evenly(orders.length, k);
