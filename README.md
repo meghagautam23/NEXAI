@@ -2,9 +2,43 @@
 
 A browser game that turns warehouse slotting into a puzzle. A 3D twin of a picking floor replays real
 customer orders from November 2011. The player rearranges which product sits on which shelf, and the
-twin replays exactly the same orders to measure how much walking was saved.
+twin replays exactly the same orders to measure how much walking was saved: **measured, not claimed**.
 
-NEXAI 2026 Hackathon, Track 4, PS 4.2.
+NEXAI 2026 Hackathon, Track 4, PS 4.2 · Online Retail II (UCI, CC BY 4.0) · React Three Fiber · no backend.
+
+## Results
+
+All numbers are walking distance over **all 735 orders of the test week (22–30 Nov 2011)**, which no
+layout or optimizer saw while being built: the Baseline ranks products and AI Suggest learns on
+1–21 Nov only. Every layout obeys the placement rules (heavy items in the front bays).
+
+| Layout | Single-order picking | 4-order carts, first come | 4-order carts, proximity |
+|---|---:|---:|---:|
+| Original (assumed "as received") | 51,884 m | 24,292 m (−53.2%) | 20,642 m (−60.2%) |
+| Baseline (fast movers nearest the dock) | 49,597 m (−4.4%) | 24,015 m (−53.7%) | 20,025 m (−61.4%) |
+| **AI Suggest** (Balanced, seed 1) | **43,233 m (−16.7%)** | 22,870 m (−55.9%) | **18,272 m (−64.8%)** |
+
+Percentages are against Original with single-order picking. Average time per order (walking at 1 m/s
+plus 10 s per line) goes from 2:24 (Original, single) to 1:38 (AI layout, proximity carts).
+
+- **The textbook rule barely helps here.** Fast movers nearest the dock saves 4.4%: this retailer serves
+  wholesalers, and big orders send the picker across the whole floor anyway (it saves about a fifth on
+  one-line orders but nothing on orders of 16+ lines).
+- **Bought-together placement does.** AI Suggest puts products that are ordered together next to each
+  other: **−12.8% vs Baseline** on the unseen week, re-slotting 67 of 100 products, paid back in about
+  51 picking days (at £15/hour and 10 minutes per move, both editable).
+- **Batching is the biggest lever, and slotting still adds to it.** Four-order proximity carts cut walking
+  by about 60%; with the AI layout the carts walk another 8.8% less than with the Baseline.
+- **Distribution, not just the mean.** Per order, AI vs Baseline: mean 58.8 m vs 67.5 m, median
+  54.6 m vs 68.4 m, p90 104.2 m vs 113.8 m.
+
+## Contents
+
+[Run locally](#run-locally) · [Data](#data) · [Warehouse layout](#warehouse-layout) ·
+[Simulation engine](#simulation-engine) · [3D scene](#3d-scene) · [Game](#game) ·
+[Classifications](#classifications) · [AI Suggest](#ai-suggest) · [Batch picking](#batch-picking) ·
+[Testing and CI](#testing-and-ci) · [Assumptions and limitations](#assumptions-and-limitations) ·
+[Pitch and demo script](docs/PITCH.md)
 
 ## Run locally
 
@@ -111,17 +145,6 @@ the dock, within the placement rules: heavy items first take the nearest front s
 then every other product takes the nearest free slot of its zone. Ties are broken by slot id and
 product id.
 
-### Results so far
-
-Both layouts obey the placement rules below (heavy items in the front bays).
-
-| Layout | Week | Total distance | Mean / order | Median | p90 | Avg time / order |
-|---|---|---:|---:|---:|---:|---:|
-| Original | Test (735 orders) | 51,884 m | 70.6 m | 70.0 m | 111.4 m | 144.0 s |
-| Baseline | Test (735 orders) | 49,597 m (−4.4%) | 67.5 m | 68.4 m | 113.8 m | 140.9 s |
-| Original | Train (1,617 orders) | 113,524 m | 70.2 m | 70.0 m | 111.4 m | 141.9 s |
-| Baseline | Train (1,617 orders) | 109,424 m (−3.6%) | 67.7 m | 67.6 m | 111.4 m | 139.4 s |
-
 ## 3D scene
 
 React Three Fiber (`src/scene/`), with a small HUD (`src/ui/Hud.tsx`) and shared state in zustand (`src/store.ts`).
@@ -157,7 +180,7 @@ uses.
 | **Challenge** (default) | Baseline | 10, undo refunds one | Hidden until you **Submit**; then win if you beat the Baseline |
 | **Sandbox** | Original | Unlimited; **Load Baseline** available | Shown live |
 
-The scoreboard lists Original, Baseline and Yours on all 735 test-week orders: total distance, mean,
+The scoreboard lists Original, Baseline, Yours and AI Suggest on all 735 test-week orders: total distance, mean,
 median and p90 distance per order, average time per order and change vs Original. Game rules are tested
 in `src/store.test.ts`.
 
@@ -220,10 +243,11 @@ with the ABC zones or the heavy zone marked on the floor.
   payback period. The assumptions (default £15/hour, 10 minutes per move, 250 days a year) are editable in
   the card. It covers walking time in the 100-product zone modelled here, not the whole catalogue.
 
-Typical results over seeds (test week vs Baseline): *Max saving* −12% moving ~92 products; *Balanced*
-−11% to −14% moving ~63; *Fewer moves* −6% to −9% moving ~30–43. One browser run (Balanced): **−11.6%**,
-5,748 m less over 8 picking days, 62 moves, about 12 minutes of walking saved a day, 10.3 hours of
-re-slotting, paid back in 52 picking days. Tested in `src/engine/optimizer.test.ts`.
+Reference runs (45,000 swaps, seeds 1–3, test week vs Baseline): *Max saving* −11.2% to −12.8% moving
+93 products; *Balanced* −12.3% to −13.2% moving 59–67; *Fewer moves* −7.6% to −9.5% moving 36–48.
+Limiting moves does not cost much on the unseen week: it also stops the search overfitting the train
+weeks. A browser run uses a time budget and a random seed, so its numbers vary slightly. Tested in
+`src/engine/optimizer.test.ts`.
 
 ## Batch picking
 
@@ -251,3 +275,31 @@ Average time per order falls from 2:20 to 1:40 with 4-order proximity carts. Bat
 walking than slotting alone, and the two add up: the panel compares every layout (Original, Baseline,
 Yours, AI Suggest) under each policy. Sorting time at the dock is not included. Tick **Replay batches in
 3D** to watch the picker walk 10 sample carts. Tested in `src/engine/batching.test.ts`.
+
+## Testing and CI
+
+- **61 TypeScript tests** (Vitest): geometry never cuts through racks; the animation walks exactly the
+  scored distance; incremental swap scoring equals a full rescore; layouts obey the rules; game rules
+  (swaps, limits, undo, submit, zones); leaderboard storage failures; optimizer rules, determinism and
+  hold-out; move explanations; business-case maths; batching limits and savings.
+- **6 Python tests** (pytest) on a hand-made sheet: every cleaning rule, the split, the train-only top 100
+  and affinity, the classification cut-offs and weight bands.
+- `scripts/validate_data.py` checks the committed JSON against every data rule.
+- **CI** (`.github/workflows/ci-cd.yml`): data checks, lint, typecheck, tests and build on every push and
+  pull request. The Vercel deploy job needs `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`
+  repository secrets; without them it fails while the other jobs still pass.
+
+## Assumptions and limitations
+
+- **Layout.** The dataset has no shelf positions: the warehouse (100 slots, 5 aisles) and the *Original*
+  layout (stock-code order) are our assumptions.
+- **Scope.** The top 100 products cover 21% of November's order lines; results describe this 100-product
+  pick zone, about 92 orders a day, not the whole catalogue. The £ figures scale with the zone.
+- **Weights are estimated** from product descriptions (`WEIGHT_RULES` in `preprocess.py`); replace them
+  with real weights or your FL definitions when available.
+- **Routing** is nearest-neighbour along aisle centerlines, the same for every layout. Racks have one
+  level. Walking is 1 m/s and picking 10 s per line for every layout, so only walking differs.
+- **Batch picking** excludes sorting time at the dock.
+- **Business case** counts walking time only; cost per hour, minutes per move and days per year are
+  assumptions shown and editable in the AI Suggest card.
+- **Leaderboard** is stored in the browser (`localStorage`), so it belongs to one browser.
